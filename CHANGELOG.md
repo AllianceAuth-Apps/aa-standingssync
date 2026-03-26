@@ -30,6 +30,7 @@ CELERYBEAT_SCHEDULE['standingssync.run_regular_sync'] = {
 
 - BREAKING CHANGE: Support dropped for AA3
 - Templates migrated to AA4 / Bootstrap 5
+- Added basic protection against ESI rate limit issues
 
 ## [1.10.0] - 2023-12-28
 
