@@ -7,11 +7,24 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
-## [2.0.0] - 2025-09-02
+## [2.0.0] - 2026-03-26
 
 ### Update notes
 
 This release requires Alliance Auth 4.0 or greater.
+
+Please update the value for `'schedule'` of the related periodic task in your local settings.
+This change will help reduce peak load on CCP's servers.
+
+The new default configuration looks like this:
+
+```python
+# settings for standingssync
+CELERYBEAT_SCHEDULE['standingssync.run_regular_sync'] = {
+    'task': 'standingssync.tasks.run_regular_sync',
+    'schedule': 7200
+}
+```
 
 ### Changed
 
