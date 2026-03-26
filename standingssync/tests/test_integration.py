@@ -5,7 +5,7 @@ from eveuniverse.models import EveEntity
 
 from allianceauth.eveonline.models import EveAllianceInfo
 from app_utils.esi_testing import BravadoOperationStub
-from app_utils.testing import NoSocketsTestCase
+from app_utils.testing import NoSocketsTestCase, reset_celery_once_locks
 
 from standingssync.core.esi_contacts import EsiContact, EsiContactLabel
 from standingssync.tasks import run_manager_sync
@@ -29,6 +29,11 @@ MODELS_PATH = "standingssync.models"
 @patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS")
 @patch(ESI_API_PATH + ".esi")
 class TestTasksE2E(NoSocketsTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        reset_celery_once_locks("standingssync")
+
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
     def test_should_sync_manager_and_character_no_wt(self, mock_esi):

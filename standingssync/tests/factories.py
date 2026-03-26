@@ -1,6 +1,5 @@
 """Model test factories."""
 
-
 import datetime as dt
 from typing import Generic, TypeVar
 

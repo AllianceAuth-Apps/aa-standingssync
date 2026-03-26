@@ -50,6 +50,7 @@ DATABASES['default'] = {
 ESI_SSO_CLIENT_ID = "dummy"
 ESI_SSO_CLIENT_SECRET = "dummy"
 ESI_SSO_CALLBACK_URL = "http://localhost:8000"
+ESI_USER_CONTACT_EMAIL = "info@example.com"
 
 # By default emails are validated before new users can log in.
 # It's recommended to use a free service like SparkPost or Elastic Email to send email.
@@ -73,3 +74,8 @@ DEFAULT_FROM_EMAIL = ""
 # workarounds to suppress warnings
 LOGGING = None
 STATICFILES_DIRS = []
+
+# Workaround for fixing the "Missing staticfiles manifest entry" bug in tests
+STORAGES["staticfiles"][
+    "BACKEND"
+] = "django.contrib.staticfiles.storage.StaticFilesStorage"

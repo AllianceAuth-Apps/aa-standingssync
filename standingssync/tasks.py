@@ -6,6 +6,8 @@ from eveuniverse.core.esitools import is_esi_online
 from eveuniverse.tasks import update_unresolved_eve_entities
 
 from allianceauth.services.hooks import get_extension_logger
+from allianceauth.services.tasks import QueueOnce
+from app_utils.esi import retry_task_on_esi_error_and_offline
 from app_utils.logging import LoggerAddTag
 
 from . import __title__
@@ -18,21 +20,23 @@ logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 DEFAULT_TASK_PRIORITY = 6
 
 
-@shared_task
+@shared_task(base=QueueOnce)
 def run_regular_sync():
     """update all wars, managers and related characters if needed"""
     if not is_esi_online():
         logger.warning("ESI is not online. aborting")
         return
+
     if STANDINGSSYNC_ADD_WAR_TARGETS:
         sync_all_wars.apply_async(priority=DEFAULT_TASK_PRIORITY)
+
     for sync_manager_pk in SyncManager.objects.values_list("pk", flat=True):
         run_manager_sync.apply_async(
             args=[sync_manager_pk], priority=DEFAULT_TASK_PRIORITY
         )
 
 
-@shared_task
+@shared_task(base=QueueOnce)
 def run_manager_sync(manager_pk: int, force_update: bool = False):
     """updates contacts for given manager and related characters
 
@@ -49,7 +53,7 @@ def run_manager_sync(manager_pk: int, force_update: bool = False):
         )
 
 
-@shared_task
+@shared_task(base=QueueOnce)
 def run_character_sync(sync_char_pk: int):
     """updates in-game contacts for given character
 
@@ -67,7 +71,7 @@ def character_delete_all_contacts(sync_char_pk: int):
     synced_character.delete_all_contacts()
 
 
-@shared_task
+@shared_task(base=QueueOnce)
 def sync_all_wars():
     """Sync all wars from ESI."""
     fetch_active_war_ids_esi = EveWar.objects.fetch_active_war_ids_esi()
@@ -82,7 +86,8 @@ def sync_all_wars():
     update_unresolved_eve_entities.apply_async(priority=DEFAULT_TASK_PRIORITY)
 
 
-@shared_task
-def run_war_sync(war_id: int):
+@shared_task(bind=True, base=QueueOnce)
+def run_war_sync(self, war_id: int):
     """Sync given war from ESI."""
-    EveWar.objects.update_or_create_from_esi(war_id)
+    with retry_task_on_esi_error_and_offline(self):
+        EveWar.objects.update_or_create_from_esi(war_id)

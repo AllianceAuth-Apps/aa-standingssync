@@ -86,7 +86,7 @@ Add these lines add to bottom of your settings file:
 # settings for standingssync
 CELERYBEAT_SCHEDULE['standingssync.run_regular_sync'] = {
     'task': 'standingssync.tasks.run_regular_sync',
-    'schedule': crontab(minute=0, hour='*/2')
+    'schedule': 7200
 }
 ```
 
@@ -154,8 +154,8 @@ This app only uses two permission. One for enabling this app for users and one f
 
 Name | Purpose | Code
 -- | -- | --
-Can add synced character |Enabling the app for a user. This permission should be enabled for everyone who is allowed to use the app (e.g. Member state) |  `add_syncedcharacter`
-Can add alliance manager |Enables adding alliances for syncing by setting the character for fetching alliance contacts. This should be limited to users with admins / leadership privileges. |  `add_syncmanager`
+Can add synced character | Enabling the app for a user. This permission should be enabled for everyone who is allowed to use the app (e.g. Member state) | `add_syncedcharacter`
+Can add alliance manager | Enables adding alliances for syncing by setting the character for fetching alliance contacts. This should be limited to users with admins / leadership privileges. | `add_syncmanager`
 
 ## Admin functions
 
