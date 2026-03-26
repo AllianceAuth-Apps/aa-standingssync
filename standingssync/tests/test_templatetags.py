@@ -12,12 +12,10 @@ from .factories import (
 class TestTemplateTags(TestCase):
     def test_should_render_alliance_war_participant(self):
         # given
-        template = Template(
-            """
+        template = Template("""
             {% load standingssync %}
             {% war_participant obj %}
-            """
-        )
+            """)
         params = [
             (EveEntityAllianceFactory(), "alliance"),
             (EveEntityCorporationFactory(), "corporation"),
@@ -34,12 +32,10 @@ class TestTemplateTags(TestCase):
 
     def test_should_display_no_data_for_empty_obj(self):
         # given
-        template = Template(
-            """
+        template = Template("""
             {% load standingssync %}
             {% war_participant obj %}
-            """
-        )
+            """)
         obj = EveEntity.objects.create(id=1)
         context = Context({"obj": obj})
         # when
@@ -49,12 +45,10 @@ class TestTemplateTags(TestCase):
 
     def test_should_display_no_data_for_invalid_obj(self):
         # given
-        template = Template(
-            """
+        template = Template("""
             {% load standingssync %}
             {% war_participant obj %}
-            """
-        )
+            """)
         context = Context({"obj": "abc"})
         # when
         result = template.render(context)

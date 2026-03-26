@@ -1,0 +1,51 @@
+{% extends 'allianceauth/base-bs5.html' %}
+{% load i18n %}
+{% load static %}
+{% load navactive %}
+
+{% block header_nav_brand %}{% translate app_title %}{% endblock %}
+
+{% block page_title %}{% translate app_title %}{% endblock %}
+
+{% block header_nav_collapse_left %}
+
+    <li class="nav-item">
+        <a class="nav-link {% navactive request 'standingssync:characters' %}" href="{% url 'standingssync:characters' %}">
+            {% translate 'My Characters' %}
+        </a>
+    </li>
+    {% if STANDINGSSYNC_ADD_WAR_TARGETS %}
+        <li class="nav-item">
+            <a class="nav-link {% navactive request 'standingssync:wars' %}" href="{% url 'standingssync:wars' %}">
+                {% translate 'Current Wars' %}
+            </a>
+        </li>
+
+    {% endif %}
+
+{% endblock header_nav_collapse_left %}
+
+{% block header_nav_collapse_right %}
+    {% if perms.standingssync.add_syncmanager %}
+        <li class="nav-item">
+            <a class="btn btn-success me-2" href="{% url 'standingssync:add_alliance_manager' %}">
+                <i class="fa-solid fa-plus"></i>&nbsp;Set Alliance Character
+            </a>
+        </li>
+    {% endif %}
+{% endblock header_nav_collapse_right %}
+
+{% block header_nav_user_character_control %}
+    {% comment %}
+        This block is left empty intentionally to disable defaults.
+    {% endcomment %}
+{% endblock %}
+
+{% block content %}
+    <h2>{{ page_title }}</h2>
+    {% block details %}{% endblock %}
+{% endblock %}
+
+{% block extra_css %}
+    <link href="{% static 'standingssync/base.css' %}" type="text/css" rel="stylesheet">
+{% endblock %}

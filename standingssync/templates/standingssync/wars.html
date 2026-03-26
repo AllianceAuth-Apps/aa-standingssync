@@ -1,14 +1,12 @@
-{% extends 'standingssync/_base.html' %}
+{% extends 'standingssync/base.html' %}
 {% load i18n %}
 {% load humanize %}
 {% load standingssync %}
 
 {% block details %}
-    <div class="panel panel-default">
-        <div class="panel-heading" style="display:flex;">
-            <h3 class="panel-title">{{ alliance }} [{{ active_wars_count }} active wars]</h3>
-        </div>
-        <div class="panel-body">
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">{{ alliance }} [{{ active_wars_count }} active wars]</h5>
             <div role="tabpanel" class="tab-pane">
                 <table class="table table-striped table-width-fix" id="tab-active-wars">
                     <thead>
@@ -81,7 +79,7 @@
 {% endblock %}
 
 {% block extra_javascript %}
-    {% include 'bundles/datatables-js.html' %}
+    {% include 'bundles/datatables-js-bs5.html' %}
     {% include 'bundles/filterdropdown-js.html' %}
 
     <script type="application/javascript">
@@ -105,7 +103,8 @@
                         }
                     ],
                     autoSize: false,
-                    bootstrap: true
+                    bootstrap: true,
+                    bootstrap_version: 5,
                 }
             });
         });
@@ -114,5 +113,5 @@
 
 {% block extra_css %}
     {{ block.super }}
-    {% include 'bundles/datatables-css.html' %}
+    {% include 'bundles/datatables-css-bs5.html' %}
 {% endblock %}

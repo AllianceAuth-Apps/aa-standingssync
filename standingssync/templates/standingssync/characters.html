@@ -1,14 +1,12 @@
-{% extends 'standingssync/_base.html' %}
+{% extends 'standingssync/base.html' %}
 {% load i18n %}
 {% load humanize %}
 
 {% block details %}
 
-    <div class="panel panel-default">
-        <div class="panel-heading" style="display:flex;">
-            <h3 class="panel-title">{% translate 'Alliance for Sync' %}</h3>
-        </div>
-        <div class="panel-body">
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">{% translate 'Alliance for Sync' %}</h5>
             {% if alliance %}
                 <img class="ra-avatar img-circle" src="{{ alliance.logo_url }}">
                 &nbsp;&nbsp;
@@ -30,12 +28,11 @@
             {% endif %}
         </div>
     </div>
+    <br>
 
-    <div class="panel panel-default">
-        <div class="panel-heading" style="display:flex;">
-            <h3 class="panel-title">{% translate 'Your Synced Characters' %}</h3>
-        </div>
-        <div class="panel-body">
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">{% translate 'Your Synced Characters' %}</h5>
             {% if has_synced_chars %}
                 <table class="table table-striped" id="tab_standingssync">
                     <thead>
@@ -87,7 +84,7 @@
             {% endif %}
         </div>
     </div>
-
+    <br>
     {% if alliance %}
         <a  id="standingssyncBtnAddSyncChar"
             class="btn btn-primary"
