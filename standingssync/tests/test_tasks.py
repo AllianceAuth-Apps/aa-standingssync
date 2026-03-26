@@ -30,8 +30,9 @@ class TestRunRegularSync(NoSocketsTestCase):
         self, mock_update_all_wars, mock_run_manager_sync
     ):
         # when
-        with patch(TASKS_PATH + ".is_esi_online", lambda: True), patch(
-            TASKS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False
+        with (
+            patch(TASKS_PATH + ".is_esi_online", lambda: True),
+            patch(TASKS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),
         ):
             tasks.run_regular_sync()
         # then
@@ -41,8 +42,9 @@ class TestRunRegularSync(NoSocketsTestCase):
         # given
         sync_manager = SyncManagerFactory(user=self.user)
         # when
-        with patch(TASKS_PATH + ".is_esi_online", lambda: True), patch(
-            TASKS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True
+        with (
+            patch(TASKS_PATH + ".is_esi_online", lambda: True),
+            patch(TASKS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
         ):
             tasks.run_regular_sync()
         # then
