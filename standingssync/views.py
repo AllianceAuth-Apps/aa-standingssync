@@ -10,9 +10,9 @@ from esi.decorators import token_required
 from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter
 from allianceauth.services.hooks import get_extension_logger
-from app_utils.logging import LoggerAddTag
 
-from . import __title__, tasks
+from standingssync import __title__, tasks
+
 from .app_settings import (
     STANDINGSSYNC_ADD_WAR_TARGETS,
     STANDINGSSYNC_CHAR_MIN_STANDING,
@@ -21,7 +21,7 @@ from .app_settings import (
 )
 from .models import EveWar, SyncedCharacter, SyncManager
 
-logger = LoggerAddTag(get_extension_logger(__name__), __title__)
+logger = get_extension_logger(__name__)
 
 MY_DATETIME_FORMAT = "Y-M-d H:i"
 

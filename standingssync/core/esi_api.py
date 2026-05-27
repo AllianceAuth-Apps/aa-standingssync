@@ -7,9 +7,7 @@ from esi.models import Token
 
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.helpers import chunks
-from app_utils.logging import LoggerAddTag
 
-from standingssync import __title__
 from standingssync.app_settings import (
     STANDINGSSYNC_UNFINISHED_WARS_EXCEPTION_IDS,
     STANDINGSSYNC_UNFINISHED_WARS_MINIMUM_ID,
@@ -18,11 +16,11 @@ from standingssync.providers import esi
 
 from .esi_contacts import EsiContact, EsiContactLabel
 
-logger = LoggerAddTag(get_extension_logger(__name__), __title__)
+logger = get_extension_logger(__name__)
 
 FETCH_WARS_MAX_ITEMS = 2000
 
-logger = LoggerAddTag(get_extension_logger(__name__), __title__)
+logger = get_extension_logger(__name__)
 
 
 def fetch_alliance_contacts(alliance_id: int, token: Token) -> Set[EsiContact]:

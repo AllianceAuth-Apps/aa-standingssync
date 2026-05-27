@@ -14,12 +14,10 @@ from eveuniverse.models import EveEntity
 
 from allianceauth.eveonline.models import EveAllianceInfo
 from allianceauth.services.hooks import get_extension_logger
-from app_utils.logging import LoggerAddTag
 
-from . import __title__
 from .core import esi_api
 
-logger = LoggerAddTag(get_extension_logger(__name__), __title__)
+logger = get_extension_logger(__name__)
 
 
 class EveContactQuerySet(models.QuerySet):
@@ -163,7 +161,7 @@ class EveWarManagerBase(models.Manager):
                             ally_info
                         )
                     except ValueError:
-                        logger.warning("%s: Could not identify ally: ", id, ally_info)
+                        logger.warning("%s: Could not identify ally: %s", id, ally_info)
                         continue
                     war.allies.add(ally)
                     entity_ids.add(ally.id)

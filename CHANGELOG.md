@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 
 - BREAKING CHANGE: Now requires Python 3.10
+- Removed logger tag
 
 ## [2.0.0] - 2026-03-26
 

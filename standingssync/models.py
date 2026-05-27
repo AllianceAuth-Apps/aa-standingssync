@@ -15,9 +15,7 @@ from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter
 from allianceauth.notifications import notify
 from allianceauth.services.hooks import get_extension_logger
-from app_utils.logging import LoggerAddTag
 
-from . import __title__
 from .app_settings import (
     STANDINGSSYNC_ADD_WAR_TARGETS,
     STANDINGSSYNC_CHAR_MIN_STANDING,
@@ -30,7 +28,7 @@ from .core.esi_contacts import EsiContact, EsiContactsContainer
 from .helpers import store_json
 from .managers import EveContactManager, EveWarManager, SyncManagerManager
 
-logger = LoggerAddTag(get_extension_logger(__name__), __title__)
+logger = get_extension_logger(__name__)
 
 
 class _SyncBaseModel(models.Model):

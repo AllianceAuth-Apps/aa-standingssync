@@ -8,13 +8,11 @@ from eveuniverse.tasks import update_unresolved_eve_entities
 from allianceauth.services.hooks import get_extension_logger
 from allianceauth.services.tasks import QueueOnce
 from app_utils.esi import retry_task_on_esi_error_and_offline
-from app_utils.logging import LoggerAddTag
 
-from . import __title__
 from .app_settings import STANDINGSSYNC_ADD_WAR_TARGETS
 from .models import EveWar, SyncedCharacter, SyncManager
 
-logger = LoggerAddTag(get_extension_logger(__name__), __title__)
+logger = get_extension_logger(__name__)
 
 
 DEFAULT_TASK_PRIORITY = 6
