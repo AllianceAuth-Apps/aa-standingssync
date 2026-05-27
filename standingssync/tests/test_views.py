@@ -5,6 +5,7 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from esi.models import Token
+from eveuniverse.tests.testdata.factories_2 import EveEntityCharacterFactory
 
 from allianceauth.eveonline.models import EveCharacter
 from app_utils.testdata_factories import (
@@ -19,7 +20,6 @@ from standingssync.models import SyncedCharacter, SyncManager
 
 from .factories import (
     EveContactFactory,
-    EveEntityCharacterFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
     UserMainManagerFactory,

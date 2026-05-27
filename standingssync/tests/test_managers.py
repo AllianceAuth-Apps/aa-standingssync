@@ -3,18 +3,19 @@ from unittest.mock import patch
 
 from django.utils.timezone import now
 from eveuniverse.models import EveEntity
+from eveuniverse.tests.testdata.factories_2 import (
+    EveEntityAllianceFactory,
+    EveEntityCorporationFactory,
+)
 
-from allianceauth.eveonline.models import EveAllianceInfo
 from app_utils.esi_testing import BravadoOperationStub
-from app_utils.testdata_factories import UserFactory
+from app_utils.testdata_factories import EveAllianceInfoFactory, UserFactory
 from app_utils.testing import NoSocketsTestCase
 
 from standingssync.models import EveWar, SyncManager
 
 from .factories import (
     EveContactFactory,
-    EveEntityAllianceFactory,
-    EveEntityCorporationFactory,
     EveWarFactory,
     SyncManagerFactory,
     UserMainSyncerFactory,
@@ -74,7 +75,7 @@ class TestEveWarManagerWarTargets(NoSocketsTestCase):
         ally_1 = EveEntityAllianceFactory()
         ally_2 = EveEntityAllianceFactory()
         EveWarFactory(aggressor=aggressor, defender=defender, allies=[ally_1, ally_2])
-        alliance = EveAllianceInfo.objects.get(alliance_id=aggressor.id)
+        alliance = EveAllianceInfoFactory(alliance_id=aggressor.id)
         # when
         result = EveWar.objects.alliance_war_targets(alliance)
         # then
@@ -88,7 +89,7 @@ class TestEveWarManagerWarTargets(NoSocketsTestCase):
         defender = EveEntityAllianceFactory()
         ally = EveEntityAllianceFactory()
         EveWarFactory(aggressor=aggressor, defender=defender, allies=[ally])
-        alliance = EveAllianceInfo.objects.get(alliance_id=defender.id)
+        alliance = EveAllianceInfoFactory(alliance_id=defender.id)
         # when
         result = EveWar.objects.alliance_war_targets(alliance)
         # then
@@ -100,7 +101,7 @@ class TestEveWarManagerWarTargets(NoSocketsTestCase):
         defender = EveEntityAllianceFactory()
         ally = EveEntityAllianceFactory()
         EveWarFactory(aggressor=aggressor, defender=defender, allies=[ally])
-        alliance = EveAllianceInfo.objects.get(alliance_id=ally.id)
+        alliance = EveAllianceInfoFactory(alliance_id=ally.id)
         # when
         result = EveWar.objects.alliance_war_targets(alliance)
         # then
@@ -326,7 +327,7 @@ class TestEveWarQueryset(NoSocketsTestCase):
     def test_should_return_wars_of_alliance_only(self):
         # given
         alliance_entity = EveEntityAllianceFactory()
-        alliance = EveAllianceInfo.objects.get(alliance_id=alliance_entity.id)
+        alliance = EveAllianceInfoFactory(alliance_id=alliance_entity.id)
         other_1 = EveEntityAllianceFactory()
         other_2 = EveEntityAllianceFactory()
         war_1 = EveWarFactory(aggressor=alliance_entity, defender=other_1)
@@ -534,7 +535,7 @@ class TestSyncManagerManager(NoSocketsTestCase):
     def test_should_return_matching_sync_manager(self):
         # given
         user = UserMainSyncerFactory()
-        alliance = EveAllianceInfo.objects.get(
+        alliance = EveAllianceInfoFactory(
             alliance_id=user.profile.main_character.alliance_id
         )
         sync_manager = SyncManagerFactory(alliance=alliance)

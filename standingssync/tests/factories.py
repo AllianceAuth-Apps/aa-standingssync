@@ -7,14 +7,12 @@ import factory
 import factory.fuzzy
 
 from django.utils.timezone import now
-from eveuniverse.models import EveEntity
-
-from app_utils.testdata_factories import (
-    EveAllianceInfoFactory,
-    EveCharacterFactory,
-    EveCorporationInfoFactory,
-    UserMainFactory,
+from eveuniverse.tests.testdata.factories_2 import (
+    EveEntityAllianceFactory,
+    EveEntityCharacterFactory,
 )
+
+from app_utils.testdata_factories import EveAllianceInfoFactory, UserMainFactory
 
 from standingssync.core.esi_contacts import EsiContact, EsiContactLabel
 from standingssync.models import EveContact, EveWar, SyncedCharacter, SyncManager
@@ -25,56 +23,6 @@ T = TypeVar("T")
 class BaseMetaFactory(Generic[T], factory.base.FactoryMetaClass):
     def __call__(cls, *args, **kwargs) -> T:
         return super().__call__(*args, **kwargs)
-
-
-class EveEntityFactory(
-    factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[EveEntity]
-):
-    class Meta:
-        model = EveEntity
-        django_get_or_create = ("id", "name")
-
-    category = EveEntity.CATEGORY_CHARACTER
-
-    @factory.lazy_attribute
-    def id(self):
-        if self.category == EveEntity.CATEGORY_CHARACTER:
-            obj = EveCharacterFactory()
-            return obj.character_id
-        if self.category == EveEntity.CATEGORY_CORPORATION:
-            obj = EveCorporationInfoFactory()
-            return obj.corporation_id
-        if self.category == EveEntity.CATEGORY_ALLIANCE:
-            obj = EveAllianceInfoFactory()
-            return obj.alliance_id
-        raise NotImplementedError(f"Unknown category: {self.category}")
-
-
-class EveEntityCharacterFactory(EveEntityFactory):
-    name = factory.Faker("name")
-    category = EveEntity.CATEGORY_CHARACTER
-
-
-class EveEntityCorporationFactory(EveEntityFactory):
-    name = factory.Faker("company")
-    category = EveEntity.CATEGORY_CORPORATION
-
-
-class EveEntityAllianceFactory(EveEntityFactory):
-    name = factory.Faker("company")
-    category = EveEntity.CATEGORY_ALLIANCE
-
-
-class EveEntityFactionFactory(
-    factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[EveEntity]
-):
-    class Meta:
-        model = EveEntity
-        django_get_or_create = ("id", "name")
-
-    id = factory.Sequence(lambda n: 500001 + n)
-    name = factory.Faker("color_name")
-    category = EveEntity.CATEGORY_FACTION
 
 
 class EveWarFactory(

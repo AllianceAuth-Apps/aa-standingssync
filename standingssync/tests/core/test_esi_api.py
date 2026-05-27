@@ -1,16 +1,14 @@
 from dataclasses import dataclass
 from unittest.mock import patch
 
+from eveuniverse.tests.testdata.factories_2 import EveEntityCharacterFactory
+
 from app_utils.esi_testing import BravadoOperationStub, EsiClientStub, EsiEndpoint
 from app_utils.testing import NoSocketsTestCase
 
 from standingssync.core import esi_api
 from standingssync.core.esi_contacts import EsiContact
-from standingssync.tests.factories import (
-    EsiContactFactory,
-    EsiContactLabelFactory,
-    EveEntityCharacterFactory,
-)
+from standingssync.tests.factories import EsiContactFactory, EsiContactLabelFactory
 from standingssync.tests.utils import EsiCharacterContactsStub
 
 MODULE_PATH = "standingssync.core.esi_api"

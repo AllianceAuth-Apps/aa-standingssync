@@ -1,5 +1,12 @@
 from unittest.mock import patch
 
+from eveuniverse.tests.testdata.factories_2 import (
+    EveEntityAllianceFactory,
+    EveEntityCharacterFactory,
+    EveEntityCorporationFactory,
+    EveEntityFactionFactory,
+)
+
 from app_utils.testing import NoSocketsTestCase
 
 from standingssync.core.esi_contacts import (
@@ -11,10 +18,6 @@ from standingssync.tests.factories import (
     EsiContactFactory,
     EsiContactLabelFactory,
     EveContactFactory,
-    EveEntityAllianceFactory,
-    EveEntityCharacterFactory,
-    EveEntityCorporationFactory,
-    EveEntityFactionFactory,
 )
 
 MODULE_PATH = "standingssync.core.esi_contacts"

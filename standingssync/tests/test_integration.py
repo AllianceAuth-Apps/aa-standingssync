@@ -2,6 +2,10 @@ from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 from eveuniverse.models import EveEntity
+from eveuniverse.tests.testdata.factories_2 import (
+    EveEntityAllianceFactory,
+    EveEntityCharacterFactory,
+)
 
 from allianceauth.eveonline.models import EveAllianceInfo
 from app_utils.esi_testing import BravadoOperationStub
@@ -11,8 +15,6 @@ from standingssync.core.esi_contacts import EsiContact, EsiContactLabel
 from standingssync.tasks import run_manager_sync
 
 from .factories import (
-    EveEntityAllianceFactory,
-    EveEntityCharacterFactory,
     EveWarFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,

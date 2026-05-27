@@ -6,6 +6,11 @@ from django.utils.timezone import now
 from esi.errors import TokenExpiredError, TokenInvalidError
 from esi.models import Token
 from eveuniverse.models import EveEntity
+from eveuniverse.tests.testdata.factories_2 import (
+    EveEntityAllianceFactory,
+    EveEntityCharacterFactory,
+    EveEntityCorporationFactory,
+)
 
 from allianceauth.eveonline.models import EveCharacter
 from app_utils.esi_testing import BravadoOperationStub, EsiClientStub, EsiEndpoint
@@ -19,9 +24,6 @@ from .factories import (
     EsiContactLabelFactory,
     EveContactFactory,
     EveContactWarTargetFactory,
-    EveEntityAllianceFactory,
-    EveEntityCharacterFactory,
-    EveEntityCorporationFactory,
     EveWarFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
