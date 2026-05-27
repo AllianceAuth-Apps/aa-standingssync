@@ -25,7 +25,6 @@ from .factories import (
     UserMainManagerFactory,
     UserMainSyncerFactory,
 )
-from .utils import load_eve_entities
 
 MODULE_PATH = "standingssync.views"
 
@@ -88,8 +87,6 @@ class TestAddSyncChar(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        load_eve_entities()
-
         cls.factory = RequestFactory()
 
         alliance = EveAllianceInfoFactory()
@@ -141,7 +138,8 @@ class TestAddSyncChar(NoSocketsTestCase):
         self, mock_messages, mock_run_character_sync
     ):
         # when
-        response = self.make_request(self.user_normal, self.character_normal)
+        with patch(MODULE_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.1):
+            response = self.make_request(self.user_normal, self.character_normal)
 
         # then
         self.assertEqual(response.status_code, 302)
@@ -156,7 +154,8 @@ class TestAddSyncChar(NoSocketsTestCase):
         add_character_to_user(self.user_normal, alt_character)
 
         # when
-        response = self.make_request(self.user_normal, alt_character)
+        with patch(MODULE_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.0):
+            response = self.make_request(self.user_normal, alt_character)
 
         # then
         self.assertEqual(response.status_code, 302)
@@ -177,7 +176,8 @@ class TestAddSyncChar(NoSocketsTestCase):
         add_character_to_user(self.user_normal, alt_character)
 
         # when
-        response = self.make_request(self.user_normal, alt_character)
+        with patch(MODULE_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.1):
+            response = self.make_request(self.user_normal, alt_character)
 
         # then
         self.assertEqual(response.status_code, 302)
@@ -198,7 +198,6 @@ class TestAddAllianceManager(NoSocketsTestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.factory = RequestFactory()
-        load_eve_entities()
 
     def make_request(self, user: User):
         character: EveCharacter = user.profile.main_character
