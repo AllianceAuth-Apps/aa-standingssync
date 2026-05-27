@@ -20,7 +20,6 @@ from .factories import (
     SyncManagerFactory,
     UserMainSyncerFactory,
 )
-from .utils import ALLIANCE_CONTACTS, load_eve_entities
 
 ESI_WARS_PATH = "standingssync.core.esi_api"
 MANAGERS_PATH = "standingssync.managers"
@@ -28,34 +27,37 @@ MODELS_PATH = "standingssync.models"
 
 
 class TestEveContactManager(NoSocketsTestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        load_eve_entities()
-
     def test_grouped_by_standing(self):
         # given
         sync_manager = SyncManagerFactory()
-        for contact in ALLIANCE_CONTACTS:
-            EveContactFactory(
-                manager=sync_manager,
-                eve_entity=EveEntity.objects.get(id=contact["contact_id"]),
-                standing=contact["standing"],
-            )
 
-        contacts = {int(obj.eve_entity_id): obj for obj in sync_manager.contacts.all()}
+        contact_terrible = EveContactFactory(
+            manager=sync_manager,
+            standing=-10.0,
+        )
+        contact_bad = EveContactFactory(
+            manager=sync_manager,
+            standing=-5.0,
+        )
+        contact_neutral = EveContactFactory(
+            manager=sync_manager,
+            standing=0.0,
+        )
+        contact_good = EveContactFactory(
+            manager=sync_manager,
+            standing=5.0,
+        )
+        contact_excellent = EveContactFactory(
+            manager=sync_manager,
+            standing=10.0,
+        )
+
         expected = {
-            -10.0: {contacts[1005], contacts[1012], contacts[3011], contacts[2011]},
-            -5.0: {contacts[1013], contacts[3012], contacts[2012]},
-            0.0: {contacts[1014], contacts[3013], contacts[2014]},
-            5.0: {contacts[1015], contacts[3014], contacts[2013]},
-            10.0: {
-                contacts[1002],
-                contacts[1004],
-                contacts[1016],
-                contacts[3015],
-                contacts[2015],
-            },
+            -10.0: {contact_terrible},
+            -5.0: {contact_bad},
+            0.0: {contact_neutral},
+            5.0: {contact_good},
+            10.0: {contact_excellent},
         }
 
         # when
