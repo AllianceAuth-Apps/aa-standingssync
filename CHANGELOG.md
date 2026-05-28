@@ -9,9 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [3.0.0] - TBD
 
+This release adds support for Alliance Auth V5 and contains breaking changes.
+
 ### Changed
 
 - BREAKING CHANGE: Now requires Python 3.10
+- Added support for AA 5
 - Removed logger tag
 - Migrated ESI client to OpenAPI
 - Modernized test suite
