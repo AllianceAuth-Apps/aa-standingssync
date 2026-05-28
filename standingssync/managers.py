@@ -182,7 +182,6 @@ class EveWarManagerBase(models.Manager):
         """Fetch IDs of all currently active wars."""
         war_ids = esi_api.fetch_war_ids()
         finished_war_ids = set(self.finished_wars().values_list("id", flat=True))
-        war_ids = set(war_ids)
         return war_ids.difference(finished_war_ids)
 
 

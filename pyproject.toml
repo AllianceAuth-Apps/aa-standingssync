@@ -29,6 +29,8 @@ dependencies = [
     "django-eveuniverse>=2",
     "django-esi>=8,<9",
 ]
+[project.optional-dependencies]
+test = ["coverage", "factory_boy", "pook"]
 
 [project.urls]
 Homepage = "https://gitlab.com/ErikKalkoken/aa-standingssync"

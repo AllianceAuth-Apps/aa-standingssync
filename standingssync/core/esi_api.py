@@ -23,6 +23,31 @@ FETCH_WARS_MAX_ITEMS = 2000
 logger = get_extension_logger(__name__)
 
 
+def add_character_contacts(token: Token, contacts: Iterable[EsiContact]) -> None:
+    """Add new contacts on ESI for a character."""
+    _update_character_contacts(
+        token=token,
+        contacts=contacts,
+        esi_method=esi.client.Contacts.post_characters_character_id_contacts,
+    )
+    logger.info("%s: Added %d contacts", token.character_name, len(contacts))
+
+
+def delete_character_contacts(token: Token, contacts: Iterable[EsiContact]):
+    """Delete character contacts on ESI."""
+    max_items = 20
+    contact_ids = sorted([contact.contact_id for contact in contacts])
+    contact_ids_chunks = chunks(contact_ids, max_items)
+    for contact_ids_chunk in contact_ids_chunks:
+        esi.client.Contacts.delete_characters_character_id_contacts(
+            token=token.valid_access_token(),
+            character_id=token.character_id,
+            contact_ids=contact_ids_chunk,
+        ).results()
+
+    logger.info("%s: Deleted %d contacts", token.character_name, len(contact_ids))
+
+
 def fetch_alliance_contacts(alliance_id: int, token: Token) -> Set[EsiContact]:
     """Fetch alliance contacts from ESI."""
     contacts_raw = esi.client.Contacts.get_alliances_alliance_id_contacts(
@@ -34,7 +59,7 @@ def fetch_alliance_contacts(alliance_id: int, token: Token) -> Set[EsiContact]:
     # add the sync alliance with max standing to contacts
     contacts[alliance_id] = EsiContact(
         contact_id=alliance_id,
-        contact_type=EsiContact.ContactType.ALLIANCE,
+        contact_type=EsiContact.Category.ALLIANCE,
         standing=10,
     )
     return set(contacts.values())
@@ -66,31 +91,6 @@ def fetch_character_contact_labels(token: Token) -> Set[EsiContactLabel]:
     return labels
 
 
-def delete_character_contacts(token: Token, contacts: Iterable[EsiContact]):
-    """Delete character contacts on ESI."""
-    max_items = 20
-    contact_ids = sorted([contact.contact_id for contact in contacts])
-    contact_ids_chunks = chunks(contact_ids, max_items)
-    for contact_ids_chunk in contact_ids_chunks:
-        esi.client.Contacts.delete_characters_character_id_contacts(
-            token=token.valid_access_token(),
-            character_id=token.character_id,
-            contact_ids=contact_ids_chunk,
-        ).results()
-
-    logger.info("%s: Deleted %d contacts", token.character_name, len(contact_ids))
-
-
-def add_character_contacts(token: Token, contacts: Iterable[EsiContact]) -> None:
-    """Add new contacts on ESI for a character."""
-    _update_character_contacts(
-        token=token,
-        contacts=contacts,
-        esi_method=esi.client.Contacts.post_characters_character_id_contacts,
-    )
-    logger.info("%s: Added %d contacts", token.character_name, len(contacts))
-
-
 def update_character_contacts(token: Token, contacts: Iterable[EsiContact]) -> None:
     """Update existing character contacts on ESI."""
     _update_character_contacts(
@@ -104,10 +104,7 @@ def update_character_contacts(token: Token, contacts: Iterable[EsiContact]) -> N
 def _update_character_contacts(
     token: Token, contacts: Iterable[EsiContact], esi_method: Callable
 ) -> None:
-    for (
-        label_ids,
-        contacts_by_standing,
-    ) in _group_for_esi_update(contacts).items():
+    for label_ids, contacts_by_standing in _group_for_esi_update(contacts).items():
         _update_character_contacts_esi(
             token=token,
             contacts_by_standing=contacts_by_standing,

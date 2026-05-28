@@ -271,7 +271,7 @@ class SyncedCharacter(_SyncBaseModel):
         - None when no update was needed
         - True when update was done successfully
         """
-        if not self._has_owner_permissions():
+        if not self._has_sync_permissions():
             return False
 
         if not self._has_standing_with_alliance():
@@ -348,7 +348,7 @@ class SyncedCharacter(_SyncBaseModel):
             self.has_war_targets_label = has_wt_label
             self.save()
 
-    def _has_owner_permissions(self) -> bool:
+    def _has_sync_permissions(self) -> bool:
         if not self.character_ownership.user.has_perm(
             "standingssync.add_syncedcharacter"
         ):
@@ -490,6 +490,11 @@ class EveContact(models.Model):
 
     def __str__(self):
         return f"{self.eve_entity}"
+
+    @property
+    def contact_id(self) -> int:
+        """Return contact ID."""
+        return self.eve_entity_id
 
 
 class EveWar(models.Model):

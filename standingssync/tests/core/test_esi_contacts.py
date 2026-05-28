@@ -27,10 +27,10 @@ WAR_TARGET_LABEL = "WAR TARGETS"
 class TestEsiContact(NoSocketsTestCase):
     def test_should_create_new_1(self):
         # when
-        obj = EsiContact(1001, EsiContact.ContactType.CHARACTER, 5.0)
+        obj = EsiContact(1001, EsiContact.Category.CHARACTER, 5.0)
         # then
         self.assertEqual(obj.contact_id, 1001)
-        self.assertEqual(obj.contact_type, EsiContact.ContactType.CHARACTER)
+        self.assertEqual(obj.contact_type, EsiContact.Category.CHARACTER)
         self.assertEqual(obj.standing, 5.0)
 
     def test_should_create_new_2(self):
@@ -38,7 +38,7 @@ class TestEsiContact(NoSocketsTestCase):
         obj = EsiContact(1001, "character", 5.0)  # type: ignore
         # then
         self.assertEqual(obj.contact_id, 1001)
-        self.assertEqual(obj.contact_type, EsiContact.ContactType.CHARACTER)
+        self.assertEqual(obj.contact_type, EsiContact.Category.CHARACTER)
         self.assertEqual(obj.standing, 5.0)
 
     def test_should_create_new_3(self):
@@ -49,10 +49,10 @@ class TestEsiContact(NoSocketsTestCase):
     def test_should_create_all_types(self):
         # given
         params = [
-            ("character", EsiContact.ContactType.CHARACTER),
-            ("corporation", EsiContact.ContactType.CORPORATION),
-            ("alliance", EsiContact.ContactType.ALLIANCE),
-            ("faction", EsiContact.ContactType.FACTION),
+            ("character", EsiContact.Category.CHARACTER),
+            ("corporation", EsiContact.Category.CORPORATION),
+            ("alliance", EsiContact.Category.ALLIANCE),
+            ("faction", EsiContact.Category.FACTION),
         ]
         for input, expected in params:
             with self.subTest(input=input):
@@ -65,7 +65,7 @@ class TestEsiContact(NoSocketsTestCase):
 
     def test_should_clone_contact_1(self):
         # given
-        a = EsiContact(1, EsiContact.ContactType.CHARACTER, 5.0, frozenset([1, 2]))
+        a = EsiContact(1, EsiContact.Category.CHARACTER, 5.0, frozenset([1, 2]))
         # when
         b = a.clone()
         # then
@@ -73,7 +73,7 @@ class TestEsiContact(NoSocketsTestCase):
 
     def test_should_clone_contact_2(self):
         # given
-        a = EsiContact(1, EsiContact.ContactType.CHARACTER, 5.0, frozenset([1, 2]))
+        a = EsiContact(1, EsiContact.Category.CHARACTER, 5.0, frozenset([1, 2]))
         # when
         b = a.clone(standing=-10)
         # then
@@ -88,7 +88,7 @@ class TestEsiContact(NoSocketsTestCase):
         # when
         obj = EsiContact.from_esi_dict(esi_dict)
         # then
-        self.assertEqual(obj, EsiContact(1, EsiContact.ContactType.CHARACTER, 5.0))
+        self.assertEqual(obj, EsiContact(1, EsiContact.Category.CHARACTER, 5.0))
 
     def test_should_create_from_esi_corporation(self):
         # given
@@ -96,7 +96,7 @@ class TestEsiContact(NoSocketsTestCase):
         # when
         obj = EsiContact.from_esi_dict(esi_dict)
         # then
-        self.assertEqual(obj, EsiContact(1, EsiContact.ContactType.CORPORATION, 5.0))
+        self.assertEqual(obj, EsiContact(1, EsiContact.Category.CORPORATION, 5.0))
 
     def test_should_create_from_esi_alliance(self):
         # given
@@ -104,7 +104,7 @@ class TestEsiContact(NoSocketsTestCase):
         # when
         obj = EsiContact.from_esi_dict(esi_dict)
         # then
-        self.assertEqual(obj, EsiContact(1, EsiContact.ContactType.ALLIANCE, 5.0))
+        self.assertEqual(obj, EsiContact(1, EsiContact.Category.ALLIANCE, 5.0))
 
     def test_should_create_from_esi_contact_when_labels_are_none(self):
         # given
@@ -117,7 +117,7 @@ class TestEsiContact(NoSocketsTestCase):
         # when
         obj = EsiContact.from_esi_dict(esi_dict)
         # then
-        self.assertEqual(obj, EsiContact(1, EsiContact.ContactType.ALLIANCE, 5.0))
+        self.assertEqual(obj, EsiContact(1, EsiContact.Category.ALLIANCE, 5.0))
 
     def test_should_create_from_esi_faction(self):
         # given
@@ -125,15 +125,15 @@ class TestEsiContact(NoSocketsTestCase):
         # when
         obj = EsiContact.from_esi_dict(esi_dict)
         # then
-        self.assertEqual(obj, EsiContact(1, EsiContact.ContactType.FACTION, 5.0))
+        self.assertEqual(obj, EsiContact(1, EsiContact.Category.FACTION, 5.0))
 
     def test_should_create_from_eve_entities(self):
         # given
         params = [
-            (EveEntityCharacterFactory(), EsiContact.ContactType.CHARACTER),
-            (EveEntityCorporationFactory(), EsiContact.ContactType.CORPORATION),
-            (EveEntityAllianceFactory(), EsiContact.ContactType.ALLIANCE),
-            (EveEntityFactionFactory(), EsiContact.ContactType.FACTION),
+            (EveEntityCharacterFactory(), EsiContact.Category.CHARACTER),
+            (EveEntityCorporationFactory(), EsiContact.Category.CORPORATION),
+            (EveEntityAllianceFactory(), EsiContact.Category.ALLIANCE),
+            (EveEntityFactionFactory(), EsiContact.Category.FACTION),
         ]
         for eve_entity, expected in params:
             with self.subTest(category=eve_entity.category):

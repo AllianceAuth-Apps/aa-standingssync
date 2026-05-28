@@ -41,8 +41,8 @@ class EsiContactLabel:
 class EsiContact:
     """An ESI contact. Immutable."""
 
-    class ContactType(str, Enum):
-        """A contact type."""
+    class Category(str, Enum):
+        """The category of a contact."""
 
         ALLIANCE = "alliance"
         CHARACTER = "character"
@@ -50,7 +50,7 @@ class EsiContact:
         FACTION = "faction"
 
         @classmethod
-        def from_esi_contact_type(cls, contact_type) -> "EsiContact.ContactType":
+        def from_esi_contact_type(cls, contact_type) -> "EsiContact.Category":
             """Create from an ESI contact type."""
             mapper = {
                 "alliance": cls.ALLIANCE,
@@ -61,13 +61,13 @@ class EsiContact:
             return mapper[contact_type]
 
     contact_id: int
-    contact_type: ContactType
+    contact_type: Category
     standing: float
     label_ids: FrozenSet[int] = field(default_factory=frozenset)
 
     def __post_init__(self):
         object.__setattr__(self, "contact_id", int(self.contact_id))
-        object.__setattr__(self, "contact_type", self.ContactType(self.contact_type))
+        object.__setattr__(self, "contact_type", self.Category(self.contact_type))
         object.__setattr__(self, "standing", float(self.standing))
         object.__setattr__(self, "label_ids", frozenset(self.label_ids))
 
@@ -83,7 +83,7 @@ class EsiContact:
         """Return as a dict."""
         obj = {
             "contact_id": self.contact_id,
-            "contact_type": self.ContactType(self.contact_type).value,
+            "contact_type": self.Category(self.contact_type).value,
             "standing": self.standing,
         }
         if self.label_ids:
@@ -95,7 +95,7 @@ class EsiContact:
         """Create new objects from an ESI contact."""
         return cls(
             contact_id=esi_dict["contact_id"],
-            contact_type=EsiContact.ContactType.from_esi_contact_type(
+            contact_type=EsiContact.Category.from_esi_contact_type(
                 esi_dict["contact_type"]
             ),
             standing=esi_dict["standing"],
@@ -108,10 +108,10 @@ class EsiContact:
     ) -> "EsiContact":
         """Create new instance from an EveEntity object."""
         contact_type_map = {
-            EveEntity.CATEGORY_ALLIANCE: cls.ContactType.ALLIANCE,
-            EveEntity.CATEGORY_CHARACTER: cls.ContactType.CHARACTER,
-            EveEntity.CATEGORY_CORPORATION: cls.ContactType.CORPORATION,
-            EveEntity.CATEGORY_FACTION: cls.ContactType.FACTION,
+            EveEntity.CATEGORY_ALLIANCE: cls.Category.ALLIANCE,
+            EveEntity.CATEGORY_CHARACTER: cls.Category.CHARACTER,
+            EveEntity.CATEGORY_CORPORATION: cls.Category.CORPORATION,
+            EveEntity.CATEGORY_FACTION: cls.Category.FACTION,
         }
         if eve_entity.category not in contact_type_map:
             raise ValueError(
@@ -128,9 +128,9 @@ class EsiContact:
     def from_eve_contact(cls, eve_contact: Any, label_ids=None) -> "EsiContact":
         """Create new instance from an EveContact object."""
         contact_type_map = {
-            EveEntity.CATEGORY_ALLIANCE: cls.ContactType.ALLIANCE,
-            EveEntity.CATEGORY_CHARACTER: cls.ContactType.CHARACTER,
-            EveEntity.CATEGORY_CORPORATION: cls.ContactType.CORPORATION,
+            EveEntity.CATEGORY_ALLIANCE: cls.Category.ALLIANCE,
+            EveEntity.CATEGORY_CHARACTER: cls.Category.CHARACTER,
+            EveEntity.CATEGORY_CORPORATION: cls.Category.CORPORATION,
         }
         return cls(
             contact_id=eve_contact.eve_entity.id,
@@ -165,6 +165,13 @@ class EsiContactsContainer:
         else:
             label_ids = []
         self._contacts[contact.contact_id] = contact.clone(label_ids=label_ids)
+
+    def update_contact(self, contact: EsiContact) -> bool:
+        """Update an existing contact and return whether it was successful."""
+        if contact.contact_id not in self._contacts:
+            return False
+        self._contacts[contact.contact_id] = contact
+        return True
 
     def add_eve_contacts(
         self, contacts: Iterable[object], label_ids: Optional[List[int]] = None

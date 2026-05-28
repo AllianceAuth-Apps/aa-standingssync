@@ -1,5 +1,8 @@
 import datetime as dt
+from http import HTTPStatus
 from unittest.mock import patch
+
+import pook
 
 from django.utils.timezone import now
 from eveuniverse.models import EveEntity
@@ -8,7 +11,6 @@ from eveuniverse.tests.testdata.factories_2 import (
     EveEntityCorporationFactory,
 )
 
-from app_utils.esi_testing import BravadoOperationStub
 from app_utils.testdata_factories import EveAllianceInfoFactory, UserFactory
 from app_utils.testing import NoSocketsTestCase
 
@@ -19,11 +21,11 @@ from .factories import (
     EveWarFactory,
     SyncManagerFactory,
     UserMainSyncerFactory,
+    make_esi_url,
 )
+from .helpers import TestCaseWithClearCache
 
-ESI_WARS_PATH = "standingssync.core.esi_api"
 MANAGERS_PATH = "standingssync.managers"
-MODELS_PATH = "standingssync.models"
 
 
 class TestEveContactManager(NoSocketsTestCase):
@@ -162,167 +164,162 @@ class TestEveWarManager(NoSocketsTestCase):
         # then
         self.assertSetEqual({obj.id for obj in result}, {2})
 
-    @patch(ESI_WARS_PATH + ".esi")
-    def test_should_create_full_war_object_from_esi_1(self, mock_esi):
+
+class TestEveWarManager_UpdateOrCreateFromEsi(TestCaseWithClearCache):
+    @pook.on
+    def test_should_create_full_war_object_from_esi(self):
         # given
         declared = now() - dt.timedelta(days=5)
         started = now() - dt.timedelta(days=4)
         finished = now() + dt.timedelta(days=1)
         retracted = now()
-        esi_data = {
-            "aggressor": {
-                "alliance_id": 3001,
-                "isk_destroyed": 0,
-                "ships_killed": 0,
+        war_id = 42
+        aggressor = EveEntityAllianceFactory()
+        ally_1 = EveEntityAllianceFactory()
+        ally_2 = EveEntityCorporationFactory()
+        defender = EveEntityAllianceFactory()
+        pook.get(
+            make_esi_url(f"wars/{war_id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "aggressor": {
+                    "alliance_id": aggressor.id,
+                    "isk_destroyed": 0,
+                    "ships_killed": 0,
+                },
+                "allies": [{"alliance_id": ally_1.id}, {"corporation_id": ally_2.id}],
+                "declared": declared.isoformat(),
+                "defender": {
+                    "alliance_id": defender.id,
+                    "isk_destroyed": 0,
+                    "ships_killed": 0,
+                },
+                "finished": finished.isoformat(),
+                "id": war_id,
+                "mutual": False,
+                "open_for_allies": True,
+                "retracted": retracted.isoformat(),
+                "started": started.isoformat(),
             },
-            "allies": [{"alliance_id": 3003}, {"corporation_id": 2003}],
-            "declared": declared,
-            "defender": {
-                "alliance_id": 3002,
-                "isk_destroyed": 0,
-                "ships_killed": 0,
-            },
-            "finished": finished,
-            "id": 1,
-            "mutual": False,
-            "open_for_allies": True,
-            "retracted": retracted,
-            "started": started,
-        }
-        mock_esi.client.Wars.get_wars_war_id.return_value = BravadoOperationStub(
-            esi_data
         )
+
         # when
-        war, created = EveWar.objects.update_or_create_from_esi(id=1)
+        war: EveWar
+        war, created = EveWar.objects.update_or_create_from_esi(id=war_id)
+
         # then
         self.assertTrue(created)
-        self.assertEqual(war.aggressor.id, 3001)
-        self.assertEqual(set(war.allies.values_list("id", flat=True)), {2003, 3003})
+        self.assertEqual(war.aggressor, aggressor)
+        self.assertCountEqual(war.allies.all(), [ally_1, ally_2])
         self.assertEqual(war.declared, declared)
-        self.assertEqual(war.defender.id, 3002)
+        self.assertEqual(war.defender, defender)
         self.assertEqual(war.finished, finished)
         self.assertFalse(war.is_mutual)
         self.assertTrue(war.is_open_for_allies)
         self.assertEqual(war.retracted, retracted)
         self.assertEqual(war.started, started)
 
-    @patch(ESI_WARS_PATH + ".esi")
-    def test_should_create_full_war_object_from_esi_2(self, mock_esi):
+    @pook.on
+    def test_should_create_minimal_war_object_from_esi(self):
         # given
         declared = now() - dt.timedelta(days=5)
         started = now() - dt.timedelta(days=4)
-        esi_data = {
-            "aggressor": {
-                "alliance_id": 3001,
-                "isk_destroyed": 0,
-                "ships_killed": 0,
+        war_id = 42
+        aggressor = EveEntityAllianceFactory()
+        defender = EveEntityAllianceFactory()
+        pook.get(
+            make_esi_url(f"wars/{war_id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "aggressor": {
+                    "alliance_id": aggressor.id,
+                    "isk_destroyed": 0,
+                    "ships_killed": 0,
+                },
+                "declared": declared.isoformat(),
+                "defender": {
+                    "alliance_id": defender.id,
+                    "isk_destroyed": 0,
+                    "ships_killed": 0,
+                },
+                "id": war_id,
+                "mutual": False,
+                "open_for_allies": True,
+                "started": started.isoformat(),
             },
-            "allies": None,
-            "declared": declared,
-            "defender": {
-                "alliance_id": 3002,
-                "isk_destroyed": 0,
-                "ships_killed": 0,
-            },
-            "finished": None,
-            "id": 1,
-            "mutual": False,
-            "open_for_allies": True,
-            "retracted": None,
-            "started": started,
-        }
-        mock_esi.client.Wars.get_wars_war_id.return_value = BravadoOperationStub(
-            esi_data
         )
+
         # when
-        war, created = EveWar.objects.update_or_create_from_esi(id=1)
+        war: EveWar
+        war, created = EveWar.objects.update_or_create_from_esi(id=war_id)
+
         # then
         self.assertTrue(created)
-        self.assertEqual(war.aggressor.id, 3001)
+        self.assertEqual(war.aggressor, aggressor)
         self.assertEqual(war.allies.count(), 0)
         self.assertEqual(war.declared, declared)
-        self.assertEqual(war.defender.id, 3002)
+        self.assertEqual(war.defender, defender)
         self.assertIsNone(war.finished)
         self.assertFalse(war.is_mutual)
         self.assertTrue(war.is_open_for_allies)
         self.assertIsNone(war.retracted)
         self.assertEqual(war.started, started)
 
-    # @patch(ESI_WARS_PATH + ".esi")
-    # def test_should_not_create_object_from_esi_for_finished_war(self, mock_esi):
-    #     # given
-    #     declared = now() - dt.timedelta(days=5)
-    #     started = now() - dt.timedelta(days=4)
-    #     finished = now() - dt.timedelta(days=1)
-    #     esi_data = {
-    #         "aggressor": {
-    #             "alliance_id": 3001,
-    #             "isk_destroyed": 0,
-    #             "ships_killed": 0,
-    #         },
-    #         "allies": [{"alliance_id": 3003}, {"corporation_id": 2003}],
-    #         "declared": declared,
-    #         "defender": {
-    #             "alliance_id": 3002,
-    #             "isk_destroyed": 0,
-    #             "ships_killed": 0,
-    #         },
-    #         "finished": finished,
-    #         "id": 1,
-    #         "mutual": False,
-    #         "open_for_allies": True,
-    #         "retracted": None,
-    #         "started": started,
-    #     }
-    #     mock_esi.client.Wars.get_wars_war_id.return_value = BravadoOperationStub(
-    #         esi_data
-    #     )
-    #     # when
-    #     EveWar.objects.update_or_create_from_esi(id=1)
-    #     # then
-    #     self.assertFalse(EveWar.objects.filter(id=1).exists())
-
-    @patch(ESI_WARS_PATH + ".esi")
-    def test_should_update_existing_war_from_esi(self, mock_esi):
+    @pook.on
+    def test_should_update_existing_war_from_esi(self):
         # given
+        declared = now() - dt.timedelta(days=5)
+        started = now() - dt.timedelta(days=4)
         finished = now() + dt.timedelta(days=1)
         retracted = now()
-        esi_data = {
-            "aggressor": {
-                "alliance_id": 3011,
-                "isk_destroyed": 0,
-                "ships_killed": 0,
+        war_id = 42
+        aggressor = EveEntityAllianceFactory()
+        ally_1 = EveEntityAllianceFactory()
+        ally_2 = EveEntityCorporationFactory()
+        defender = EveEntityAllianceFactory()
+        war_1 = EveWarFactory(id=war_id)
+        pook.get(
+            make_esi_url(f"wars/{war_id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "aggressor": {
+                    "alliance_id": aggressor.id,
+                    "isk_destroyed": 0,
+                    "ships_killed": 0,
+                },
+                "allies": [{"alliance_id": ally_1.id}, {"corporation_id": ally_2.id}],
+                "declared": declared.isoformat(),
+                "defender": {
+                    "alliance_id": defender.id,
+                    "isk_destroyed": 0,
+                    "ships_killed": 0,
+                },
+                "finished": finished.isoformat(),
+                "id": war_id,
+                "mutual": False,
+                "open_for_allies": True,
+                "retracted": retracted.isoformat(),
+                "started": started.isoformat(),
             },
-            "allies": [{"alliance_id": 3003}, {"corporation_id": 2003}],
-            "declared": self.war_declared,
-            "defender": {
-                "alliance_id": 3001,
-                "isk_destroyed": 0,
-                "ships_killed": 0,
-            },
-            "finished": finished,
-            "id": 8,
-            "mutual": True,
-            "open_for_allies": True,
-            "retracted": retracted,
-            "started": self.war_started,
-        }
-        mock_esi.client.Wars.get_wars_war_id.return_value = BravadoOperationStub(
-            esi_data
         )
+
         # when
-        war, created = EveWar.objects.update_or_create_from_esi(id=8)
+        war_2: EveWar
+        war_2, created = EveWar.objects.update_or_create_from_esi(id=war_id)
+
         # then
         self.assertFalse(created)
-        self.assertEqual(war.aggressor.id, 3011)
-        self.assertEqual(set(war.allies.values_list("id", flat=True)), {2003, 3003})
-        self.assertEqual(war.declared, self.war_declared)
-        self.assertEqual(war.defender.id, 3001)
-        self.assertEqual(war.finished, finished)
-        self.assertTrue(war.is_mutual)
-        self.assertTrue(war.is_open_for_allies)
-        self.assertEqual(war.retracted, retracted)
-        self.assertEqual(war.started, self.war_started)
+        war_1.refresh_from_db()
+        self.assertEqual(war_1.aggressor, aggressor)
+        self.assertCountEqual(war_1.allies.all(), [ally_1, ally_2])
+        self.assertEqual(war_1.declared, declared)
+        self.assertEqual(war_1.defender, defender)
+        self.assertEqual(war_1.finished, finished)
+        self.assertFalse(war_1.is_mutual)
+        self.assertTrue(war_1.is_open_for_allies)
+        self.assertEqual(war_1.retracted, retracted)
+        self.assertEqual(war_1.started, started)
+        self.assertEqual(war_1, war_2)
 
 
 class TestEveWarQueryset(NoSocketsTestCase):
@@ -346,7 +343,7 @@ class TestEveWarQueryset(NoSocketsTestCase):
         self.assertSetEqual(expected, result)
 
 
-class TestEveWarManager2(NoSocketsTestCase):
+class TestEveWarManager_FetchActiveWarIdsEsi(NoSocketsTestCase):
     @patch(MANAGERS_PATH + ".esi_api.fetch_war_ids")
     def test_should_return_unfinished_war_ids(self, mock_fetch_war_ids_from_esi):
         # given
@@ -358,7 +355,7 @@ class TestEveWarManager2(NoSocketsTestCase):
         self.assertSetEqual(result, {1, 2})
 
 
-class TestEveWarManagerEveEntityFromWarParticipant(NoSocketsTestCase):
+class TestEveWarManager__GetOrCreateEveEntityFromParticipant(NoSocketsTestCase):
     def test_should_create_from_alliance_id(self):
         # given
         alliance = EveEntityAllianceFactory()
@@ -385,7 +382,7 @@ class TestEveWarManagerEveEntityFromWarParticipant(NoSocketsTestCase):
             EveWar.objects._get_or_create_eve_entity_from_participant(data)
 
 
-class TestEveWarManagerAnnotations(NoSocketsTestCase):
+class TestEveWarManager_Annotations(NoSocketsTestCase):
     def test_should_annotate_state(self):
         # given
         war_pending = EveWarFactory(declared=now())
@@ -423,7 +420,7 @@ class TestEveWarManagerAnnotations(NoSocketsTestCase):
         self.assertFalse(qs.get(id=war_finished.id).is_active)
 
 
-class TestEveWarManagerCurrentWars(NoSocketsTestCase):
+class TestEveWarManager_CurrentWars(NoSocketsTestCase):
     def test_should_return_recently_declared_war(self):
         # given
         war = EveWarFactory(declared=now())
@@ -452,7 +449,7 @@ class TestEveWarManagerCurrentWars(NoSocketsTestCase):
         self.assertEqual(result.first(), war)
 
 
-class TestEveWarManagerActiveWars(NoSocketsTestCase):
+class TestEveWarManager_ActiveWars(NoSocketsTestCase):
     def test_should_return_started_war_as_defender(self):
         # given
         sync_manager = SyncManagerFactory()

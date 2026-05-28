@@ -1,26 +1,27 @@
+from http import HTTPStatus
 from unittest.mock import patch
 
+import pook
+
 from django.test import TestCase, override_settings
-from eveuniverse.models import EveEntity
 from eveuniverse.tests.testdata.factories_2 import (
     EveEntityAllianceFactory,
     EveEntityCharacterFactory,
 )
 
 from allianceauth.eveonline.models import EveAllianceInfo
-from app_utils.esi_testing import BravadoOperationStub
-from app_utils.testing import NoSocketsTestCase, reset_celery_once_locks
 
-from standingssync.core.esi_contacts import EsiContact, EsiContactLabel
-from standingssync.tasks import run_manager_sync
+from standingssync import tasks
 
 from .factories import (
     EveWarFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
+    UserMainManagerFactory,
     UserMainSyncerFactory,
+    make_esi_url,
 )
-from .utils import EsiCharacterContactsStub, create_esi_contact
+from .helpers import TestCaseWithClearCache
 
 ESI_CONTACTS_PATH = "standingssync.core.esi_contacts"
 ESI_API_PATH = "standingssync.core.esi_api"
@@ -28,185 +29,146 @@ MODELS_PATH = "standingssync.models"
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
-@patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS")
-@patch(ESI_API_PATH + ".esi")
-class TestTasksE2E(NoSocketsTestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        reset_celery_once_locks("standingssync")
-
-    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
-    def test_should_sync_manager_and_character_no_wt(self, mock_esi):
+class TestTasksE2E(TestCaseWithClearCache):
+    @pook.on
+    def test_should_sync_manager_and_character_without_war_targets(self):
         # given
-        manager = SyncManagerFactory()
-        sync_character = SyncedCharacterFactory(manager=manager)
-        character = EveEntityCharacterFactory(
-            id=sync_character.character.character_id,
-            name=sync_character.character.character_name,
-        )
-        some_alliance_contact = EveEntityCharacterFactory()
-        alliance_contacts = [
-            create_esi_contact(character),
-            create_esi_contact(some_alliance_contact),
-        ]
-        mock_esi.client.Contacts.get_alliances_alliance_id_contacts.return_value = (
-            BravadoOperationStub(alliance_contacts)
-        )
-        esi_character_contacts = EsiCharacterContactsStub.create(
-            sync_character.character.character_id, mock_esi
-        )
-        # when
-        run_manager_sync.delay(manager_pk=manager.pk)
-        # then
-        expected = {
-            EsiContact.from_eve_entity(some_alliance_contact, standing=5),
-            EsiContact(manager.alliance.alliance_id, "alliance", standing=10),
-        }
-        self.assertSetEqual(esi_character_contacts.contacts(), expected)
-        self.assertNotIn(
-            sync_character.character.character_id, esi_character_contacts.contact_ids()
-        )
-
-    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
-    def test_should_sync_manager_and_character_with_wt_as_defender(self, mock_esi):
-        # given
-        manager = SyncManagerFactory()
-        alliance = EveEntity.objects.get(id=manager.alliance.alliance_id)
-        war = EveWarFactory(defender=alliance)
-        sync_character = SyncedCharacterFactory(manager=manager)
-        character = EveEntityCharacterFactory(
-            id=sync_character.character.character_id,
-            name=sync_character.character.character_name,
-        )
-        some_alliance_contact = EveEntityCharacterFactory()
-        alliance_contacts = [
-            create_esi_contact(character),
-            create_esi_contact(some_alliance_contact),
-        ]
-        mock_esi.client.Contacts.get_alliances_alliance_id_contacts.return_value = (
-            BravadoOperationStub(alliance_contacts)
-        )
-        war_target_label = EsiContactLabel(1, "WAR TARGETS")
-        esi_character_contacts = EsiCharacterContactsStub.create(
-            character.id, mock_esi, labels=[war_target_label]
-        )
-        # when
-        run_manager_sync.delay(manager_pk=manager.pk)
-        # then
-        expected = {
-            EsiContact.from_eve_entity(some_alliance_contact, standing=5),
-            EsiContact(
-                manager.alliance.alliance_id,
-                EsiContact.ContactType.ALLIANCE,
-                standing=10,
-            ),
-            EsiContact.from_eve_entity(
-                war.aggressor, standing=-10, label_ids=[war_target_label.id]
-            ),
-        }
-        self.assertSetEqual(esi_character_contacts.contacts(), expected)
-
-    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
-    def test_should_sync_manager_and_character_with_wt_as_aggressor(self, mock_esi):
-        # given
-        manager = SyncManagerFactory()
-        alliance = EveEntity.objects.get(id=manager.alliance.alliance_id)
-        ally = EveEntityAllianceFactory()
-        war = EveWarFactory(aggressor=alliance, allies=[ally])
-        sync_character = SyncedCharacterFactory(manager=manager)
-        character = EveEntityCharacterFactory(
-            id=sync_character.character.character_id,
-            name=sync_character.character.character_name,
-        )
-        some_alliance_contact = EveEntityCharacterFactory()
-        some_character_contact = EveEntityCharacterFactory()
-        alliance_contacts = [
-            create_esi_contact(character),
-            create_esi_contact(some_alliance_contact),
-        ]
-        mock_esi.client.Contacts.get_alliances_alliance_id_contacts.return_value = (
-            BravadoOperationStub(alliance_contacts)
-        )
-        war_target_label = EsiContactLabel(1, "WAR TARGETS")
-        esi_character_contacts = EsiCharacterContactsStub.create(
-            character.id,
-            mock_esi,
-            contacts=[
-                EsiContact.from_eve_entity(ally, standing=5),
-                EsiContact.from_eve_entity(some_character_contact, standing=10),
-            ],
-            labels=[war_target_label],
-        )
-        # when
-        run_manager_sync.delay(manager_pk=manager.pk)
-        # then
-        expected = {
-            EsiContact.from_eve_entity(some_alliance_contact, standing=5),
-            EsiContact(
-                manager.alliance.alliance_id,
-                EsiContact.ContactType.ALLIANCE,
-                standing=10,
-            ),
-            EsiContact.from_eve_entity(
-                war.defender, standing=-10, label_ids=[war_target_label.id]
-            ),
-            EsiContact.from_eve_entity(
-                ally, standing=-10, label_ids=[war_target_label.id]
-            ),
-        }
-        self.assertSetEqual(esi_character_contacts.contacts(), expected)
-
-    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", False)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
-    def test_should_sync_manager_and_character_with_wt_as_aggressor_2(self, mock_esi):
-        # given
-        manager = SyncManagerFactory()
-        alliance = EveEntity.objects.get(id=manager.alliance.alliance_id)
-        ally = EveEntityAllianceFactory()
-        war = EveWarFactory(aggressor=alliance, allies=[ally])
-        sync_character = SyncedCharacterFactory(manager=manager)
-        character = EveEntityCharacterFactory(
-            id=sync_character.character.character_id,
-            name=sync_character.character.character_name,
-        )
-        some_alliance_contact = EveEntityCharacterFactory()
-        some_character_contact = EveEntityCharacterFactory()
-        alliance_contacts = [
-            create_esi_contact(character),
-            create_esi_contact(some_alliance_contact),
-        ]
-        mock_esi.client.Contacts.get_alliances_alliance_id_contacts.return_value = (
-            BravadoOperationStub(alliance_contacts)
-        )
-        war_target_label = EsiContactLabel(1, "WAR TARGETS")
-        esi_character_contacts = EsiCharacterContactsStub.create(
-            character.id,
-            mock_esi,
-            labels=[war_target_label],
-            contacts=[
-                EsiContact.from_eve_entity(ally, standing=5),
-                EsiContact.from_eve_entity(some_character_contact, standing=10),
+        user_1 = UserMainManagerFactory()
+        sm = SyncManagerFactory(user=user_1)
+        alliance_id = user_1.profile.main_character.alliance_id
+        contact_1_id = 1001
+        EveEntityCharacterFactory(id=contact_1_id)
+        standing = 9.9
+        pook.get(
+            make_esi_url(f"alliances/{alliance_id}/contacts"),
+            reply=HTTPStatus.OK,
+            response_headers={"X-Pages": "1"},
+            response_json=[
+                {
+                    "contact_id": contact_1_id,
+                    "contact_type": "character",
+                    "standing": standing,
+                }
             ],
         )
+        sc = SyncedCharacterFactory(manager=sm)
+        pook.get(
+            make_esi_url(f"characters/{sc.character_id}/contacts"),
+            reply=HTTPStatus.OK,
+            response_headers={"X-Pages": "1"},
+            response_json=[],
+        )
+        pook.get(
+            make_esi_url(f"characters/{sc.character_id}/contacts/labels"),
+            reply=HTTPStatus.OK,
+            response_headers={"X-Pages": "1"},
+            response_json=[],
+        )
+        pook.post(
+            url=make_esi_url(f"characters/{sc.character_id}/contacts"),
+            params={"standing": str(10.0)},
+            json=[sm.alliance.alliance_id],
+            reply=HTTPStatus.CREATED,
+            response_json=[sm.alliance.id],
+        )
+        pook.post(
+            url=make_esi_url(f"characters/{sc.character_id}/contacts"),
+            params={"standing": str(standing)},
+            json=[contact_1_id],
+            reply=HTTPStatus.CREATED,
+            response_json=[contact_1_id],
+        )
+
         # when
-        run_manager_sync.delay(manager_pk=manager.pk)
+        with (
+            patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True),
+            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
+        ):
+            tasks.run_manager_sync.delay(manager_pk=sm.pk)
+
         # then
-        expected = {
-            # EsiContact.from_eve_entity(alliance, standing=10),
-            EsiContact.from_eve_entity(
-                war.defender, standing=-10, label_ids=[war_target_label.id]
+        self.assertTrue(pook.isdone())
+
+    @pook.on
+    def test_should_sync_manager_and_character_with_war_targets(self):
+        # given
+        user_1 = UserMainManagerFactory()
+        sm = SyncManagerFactory(user=user_1)
+        alliance_id = user_1.profile.main_character.alliance_id
+        contact_1_id = 1001
+        EveEntityCharacterFactory(id=contact_1_id)
+        standing = 9.9
+        aggressor = EveEntityAllianceFactory()
+        EveWarFactory(
+            aggressor=aggressor, defender=EveEntityAllianceFactory(id=alliance_id)
+        )
+        pook.get(
+            make_esi_url(f"alliances/{alliance_id}/contacts"),
+            reply=HTTPStatus.OK,
+            response_headers={"X-Pages": "1"},
+            response_json=[
+                {
+                    "contact_id": contact_1_id,
+                    "contact_type": "character",
+                    "standing": standing,
+                }
+            ],
+        )
+        sc = SyncedCharacterFactory(manager=sm)
+        pook.get(
+            make_esi_url(f"characters/{sc.character_id}/contacts"),
+            reply=HTTPStatus.OK,
+            response_headers={"X-Pages": "1"},
+            response_json=[],
+        )
+        wt_label_name = "WAR TARGETS"
+        wt_label_id = 7
+        pook.get(
+            make_esi_url(f"characters/{sc.character_id}/contacts/labels"),
+            reply=HTTPStatus.OK,
+            response_headers={"X-Pages": "1"},
+            response_json=[
+                {
+                    "label_id": wt_label_id,
+                    "label_name": wt_label_name,
+                }
+            ],
+        )
+        pook.post(
+            url=make_esi_url(f"characters/{sc.character_id}/contacts"),
+            params={"standing": str(10.0)},
+            json=[sm.alliance.alliance_id],
+            reply=HTTPStatus.CREATED,
+            response_json=[sm.alliance.id],
+        )
+        pook.post(
+            url=make_esi_url(f"characters/{sc.character_id}/contacts"),
+            params={"standing": str(standing)},
+            json=[contact_1_id],
+            reply=HTTPStatus.CREATED,
+            response_json=[contact_1_id],
+        )
+        pook.post(
+            url=make_esi_url(f"characters/{sc.character_id}/contacts"),
+            params={"standing": str(-10.0), "label_ids": [str(wt_label_id)]},
+            json=[aggressor.id],
+            reply=HTTPStatus.CREATED,
+            response_json=[aggressor.id],
+        )
+
+        # when
+        with (
+            patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True),
+            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
+            patch(
+                ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME",
+                wt_label_name,
             ),
-            EsiContact.from_eve_entity(
-                ally, standing=-10, label_ids=[war_target_label.id]
-            ),
-            EsiContact.from_eve_entity(some_character_contact, standing=10),
-            # EsiContact.from_eve_entity(some_alliance_contact, standing=5),
-        }
-        self.assertSetEqual(esi_character_contacts.contacts(), expected)
+        ):
+            tasks.run_manager_sync.delay(manager_pk=sm.pk)
+
+        # then
+        self.assertTrue(pook.isdone())
 
 
 class TestUI(TestCase):
@@ -217,7 +179,7 @@ class TestUI(TestCase):
         # when
         response = self.client.get("/standingssync/characters")
         # then
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_should_open_main_page_w_sync_manager_and_chars(self):
         # given
@@ -231,7 +193,7 @@ class TestUI(TestCase):
         # when
         response = self.client.get("/standingssync/characters")
         # then
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_should_open_wars_page_w_sync_manager(self):
         # given
@@ -245,7 +207,7 @@ class TestUI(TestCase):
         # when
         response = self.client.get("/standingssync/wars")
         # then
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_should_open_wars_page_wo_sync_manager(self):
         # given
@@ -254,4 +216,4 @@ class TestUI(TestCase):
         # when
         response = self.client.get("/standingssync/wars")
         # then
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, HTTPStatus.OK)
