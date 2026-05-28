@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - BREAKING CHANGE: Now requires Python 3.10
 - Removed logger tag
+- Migrated ESI client to OpenAPI
+- Modernized test suite
 
 ## [2.0.0] - 2026-03-26
 

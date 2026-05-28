@@ -18,7 +18,7 @@ class Command(BaseCommand):
                 "Please update wars from ESI before running this command."
             )
 
-        war_ids = esi.client.Wars.get_wars().results()
+        war_ids = esi.client.Wars.GetWars().result(use_etag=False)
         min_unfinished_war_id = EveWar.objects.filter(
             id__gte=min(war_ids), finished__isnull=True
         ).aggregate(Min("id"))["id__min"]

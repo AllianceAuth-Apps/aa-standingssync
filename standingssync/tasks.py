@@ -2,12 +2,12 @@
 
 from celery import shared_task
 
+from esi.decorators import rate_limit_retry_task
 from eveuniverse.core.esitools import is_esi_online
 from eveuniverse.tasks import update_unresolved_eve_entities
 
 from allianceauth.services.hooks import get_extension_logger
 from allianceauth.services.tasks import QueueOnce
-from app_utils.esi import retry_task_on_esi_error_and_offline
 
 from .app_settings import STANDINGSSYNC_ADD_WAR_TARGETS
 from .models import EveWar, SyncedCharacter, SyncManager
@@ -35,6 +35,7 @@ def run_regular_sync():
 
 
 @shared_task(base=QueueOnce)
+@rate_limit_retry_task
 def run_manager_sync(manager_pk: int, force_update: bool = False):
     """updates contacts for given manager and related characters
 
@@ -52,6 +53,7 @@ def run_manager_sync(manager_pk: int, force_update: bool = False):
 
 
 @shared_task(base=QueueOnce)
+@rate_limit_retry_task
 def run_character_sync(sync_char_pk: int):
     """updates in-game contacts for given character
 
@@ -84,8 +86,8 @@ def sync_all_wars():
     update_unresolved_eve_entities.apply_async(priority=DEFAULT_TASK_PRIORITY)
 
 
-@shared_task(bind=True, base=QueueOnce)
-def run_war_sync(self, war_id: int):
+@shared_task(base=QueueOnce)
+@rate_limit_retry_task
+def run_war_sync(war_id: int):
     """Sync given war from ESI."""
-    with retry_task_on_esi_error_and_offline(self):
-        EveWar.objects.update_or_create_from_esi(war_id)
+    EveWar.objects.update_or_create_from_esi(war_id)

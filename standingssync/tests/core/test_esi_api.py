@@ -91,7 +91,6 @@ class TestEsiApi(TestCaseWithClearCache):
         pook.get(
             make_esi_url(f"characters/{character_id}/contacts/labels"),
             reply=HTTPStatus.OK,
-            response_headers={"X-Pages": "1"},
             response_json=[
                 label_1.to_esi_dict(),
                 label_2.to_esi_dict(),

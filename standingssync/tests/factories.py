@@ -33,7 +33,7 @@ def make_esi_url(path: str) -> str:
     if path.endswith("/"):
         raise ValueError("path can not end with a slash")
 
-    url = urllib.parse.urljoin(_BASE_URL, "/latest/" + path + "/")
+    url = urllib.parse.urljoin(_BASE_URL, path)
     return url
 
 

@@ -26,8 +26,8 @@ classifiers = [
 dependencies = [
     "allianceauth-app-utils>=1.32",
     "allianceauth>=4,<5",
+    "django-esi>=8,<10",
     "django-eveuniverse>=2",
-    "django-esi>=8,<9",
 ]
 [project.optional-dependencies]
 test = ["coverage", "factory_boy", "pook"]
