@@ -34,9 +34,9 @@ def run_regular_sync():
         )
 
 
-@shared_task(base=QueueOnce)
+@shared_task(base=QueueOnce, bind=True)
 @rate_limit_retry_task
-def run_manager_sync(manager_pk: int, force_update: bool = False):
+def run_manager_sync(_self, manager_pk: int, force_update: bool = False):
     """updates contacts for given manager and related characters
 
     Args:
@@ -52,9 +52,9 @@ def run_manager_sync(manager_pk: int, force_update: bool = False):
         )
 
 
-@shared_task(base=QueueOnce)
+@shared_task(base=QueueOnce, bind=True)
 @rate_limit_retry_task
-def run_character_sync(sync_char_pk: int):
+def run_character_sync(_self, sync_char_pk: int):
     """updates in-game contacts for given character
 
     Args:
@@ -86,8 +86,8 @@ def sync_all_wars():
     update_unresolved_eve_entities.apply_async(priority=DEFAULT_TASK_PRIORITY)
 
 
-@shared_task(base=QueueOnce)
+@shared_task(base=QueueOnce, bind=True)
 @rate_limit_retry_task
-def run_war_sync(war_id: int):
+def run_war_sync(_self, war_id: int):
     """Sync given war from ESI."""
     EveWar.objects.update_or_create_from_esi(war_id)

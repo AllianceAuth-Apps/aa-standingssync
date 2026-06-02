@@ -1,8 +1,13 @@
 from unittest.mock import patch
 
-from django.test import TestCase, override_settings
+from celery.exceptions import Retry
 
-from app_utils.testing import NoSocketsTestCase, reset_celery_once_locks
+from django.core.cache import cache
+from django.test import TestCase, override_settings
+from esi.exceptions import ESIBucketLimitException
+from esi.rate_limiting import ESIRateLimitBucket
+
+from app_utils.testing import NoSocketsTestCase
 
 from standingssync import tasks
 from standingssync.models import SyncManager
@@ -25,14 +30,17 @@ class TestRunRegularSync(NoSocketsTestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.user = UserMainManagerFactory()
-        reset_celery_once_locks("standingssync")
+
+    def setUp(self):
+        cache.clear()
 
     def test_should_not_sync_wars_if_disabled(
         self, mock_update_all_wars, mock_run_manager_sync
     ):
         # when
-        with patch(TASKS_PATH + ".is_esi_online", lambda: True), patch(
-            TASKS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False
+        with (
+            patch(TASKS_PATH + ".is_esi_online", lambda: True),
+            patch(TASKS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),
         ):
             tasks.run_regular_sync()
         # then
@@ -42,8 +50,9 @@ class TestRunRegularSync(NoSocketsTestCase):
         # given
         sync_manager = SyncManagerFactory(user=self.user)
         # when
-        with patch(TASKS_PATH + ".is_esi_online", lambda: True), patch(
-            TASKS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True
+        with (
+            patch(TASKS_PATH + ".is_esi_online", lambda: True),
+            patch(TASKS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
         ):
             tasks.run_regular_sync()
         # then
@@ -68,7 +77,9 @@ class TestCharacterSync(NoSocketsTestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.synced_character = SyncedCharacterFactory()
-        reset_celery_once_locks("standingssync")
+
+    def setUp(self):
+        cache.clear()
 
     def test_should_call_update(self, mock_update):
         # given
@@ -91,8 +102,10 @@ class TestManagerSync(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        reset_celery_once_locks("standingssync")
         cls.user_manager = UserMainManagerFactory()
+
+    def setUp(self):
+        cache.clear()
 
     # run for non existing sync manager
     def test_run_sync_wrong_pk(self, mock_run_character_sync):
@@ -134,10 +147,8 @@ class TestManagerSync(TestCase):
 @patch(TASKS_PATH + ".run_war_sync")
 @patch(TASKS_PATH + ".EveWar.objects.fetch_active_war_ids_esi")
 class TestSyncAllWars(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        reset_celery_once_locks("standingssync")
+    def setUp(self):
+        cache.clear()
 
     def test_should_start_tasks_for_each_war_id(
         self, mock_calc_relevant_war_ids, mock_update_war
@@ -182,13 +193,23 @@ class TestSyncAllWars(TestCase):
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
+@patch(TASKS_PATH + ".EveWar.objects.update_or_create_from_esi")
 class TestRunWarSync(NoSocketsTestCase):
-    @patch(TASKS_PATH + ".EveWar.objects.update_or_create_from_esi")
+    def setUp(self):
+        cache.clear()
+
     def test_should_update_war(self, mock_update_from_esi):
-        # given
-        reset_celery_once_locks("standingssync")
         # when
-        tasks.run_war_sync(42)
+        tasks.run_war_sync.delay(42)
         # then
         args, _ = mock_update_from_esi.call_args
         self.assertEqual(args[0], 42)
+
+    def test_should_retry_on_rate_limit_exhausted(self, mock_update_from_esi):
+        # given
+        bucket = ESIRateLimitBucket("dummy", 10, 3600)
+        ex = ESIBucketLimitException(bucket)
+        mock_update_from_esi.side_effect = ex
+        # when
+        with self.assertRaises(Retry):
+            tasks.run_war_sync.delay(42)
