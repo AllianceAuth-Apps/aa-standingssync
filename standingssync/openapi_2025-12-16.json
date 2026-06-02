@@ -2187,16 +2187,22 @@
                                 "EntosisCaptureStarted",
                                 "ExpertSystemExpired",
                                 "ExpertSystemExpiryImminent",
+                                "FWAllianceKickCeoIndividualStandingWarning",
                                 "FWAllianceKickMsg",
+                                "FWAllianceKickedCeoIndividualStanding",
                                 "FWAllianceWarningMsg",
                                 "FWCharKickMsg",
                                 "FWCharRankGainMsg",
                                 "FWCharRankLossMsg",
                                 "FWCharWarningMsg",
+                                "FWCharacterKickFromCorpIndividualStandingWarning",
+                                "FWCharacterKickedFromCorpIndividualStanding",
                                 "FWCorpJoinMsg",
                                 "FWCorpKickMsg",
                                 "FWCorpLeaveMsg",
                                 "FWCorpWarningMsg",
+                                "FWCorporationKickCeoIndividualStandingWarning",
+                                "FWCorporationKickedCeoIndividualStanding",
                                 "FacWarCorpJoinRequestMsg",
                                 "FacWarCorpJoinWithdrawMsg",
                                 "FacWarCorpLeaveRequestMsg",
@@ -2206,6 +2212,7 @@
                                 "FacWarLPDisqualifiedKill",
                                 "FacWarLPPayoutEvent",
                                 "FacWarLPPayoutKill",
+                                "FreelanceProjectACLDeleted",
                                 "FreelanceProjectClosed",
                                 "FreelanceProjectCompleted",
                                 "FreelanceProjectCreated",
@@ -3372,6 +3379,8 @@
                             "description": "\"The transaction type for the given. transaction. Different transaction types will populate different attributes.\"",
                             "enum": [
                                 "acceleration_gate_fee",
+                                "achievement_category_milestone_reward",
+                                "achievement_milestone_reward",
                                 "advertisement_listing_fee",
                                 "agent_donation",
                                 "agent_location_services",
@@ -3380,6 +3389,7 @@
                                 "agent_mission_collateral_refunded",
                                 "agent_mission_reward",
                                 "agent_mission_reward_corporation_tax",
+                                "agent_mission_security_tax",
                                 "agent_mission_time_bonus_reward",
                                 "agent_mission_time_bonus_reward_corporation_tax",
                                 "agent_security_services",
@@ -3397,6 +3407,7 @@
                                 "bounty_reimbursement",
                                 "bounty_surcharge",
                                 "brokers_fee",
+                                "campaign_objective_isk_reward",
                                 "clone_activation",
                                 "clone_transfer",
                                 "contraband_fine",
@@ -3468,6 +3479,7 @@
                                 "gm_cash_transfer",
                                 "gm_plex_fee_refund",
                                 "industry_job_tax",
+                                "industry_security_tax",
                                 "infrastructure_hub_maintenance",
                                 "inheritance",
                                 "insurance",
@@ -3482,6 +3494,7 @@
                                 "market_escrow",
                                 "market_fine_paid",
                                 "market_provider_tax",
+                                "market_security_tax",
                                 "market_transaction",
                                 "medal_creation",
                                 "medal_issued",
@@ -3490,6 +3503,7 @@
                                 "mission_cost",
                                 "mission_expiration",
                                 "mission_reward",
+                                "npc_bounty_security_tax",
                                 "office_rental_fee",
                                 "operation_bonus",
                                 "opportunity_reward",
@@ -3667,6 +3681,9 @@
                     },
                     "security_status": {
                         "description": "Character's security status",
+                        "examples": [
+                            5
+                        ],
                         "format": "double",
                         "type": "number"
                     },
@@ -5155,7 +5172,7 @@
                             "type": "integer"
                         },
                         "reinforce_exit_start": {
-                            "description": "Together with reinforce_exit_end, marks a 2-hour period where this customs office could exit reinforcement mode during the day after initial attack",
+                            "description": "Together with reinforce_exit_end, marks a 2-hour or 6-hour (depending on the office type) period where this customs office could exit reinforcement mode during the day after initial attack",
                             "format": "int64",
                             "type": "integer"
                         },
@@ -5178,6 +5195,11 @@
                         "terrible_standing_tax_rate": {
                             "format": "double",
                             "type": "number"
+                        },
+                        "type_id": {
+                            "description": "ID of the type of this customs office",
+                            "format": "int64",
+                            "type": "integer"
                         }
                     },
                     "required": [
@@ -7537,6 +7559,8 @@
                             "description": "\"The transaction type for the given. transaction. Different transaction types will populate different attributes. Note: If you have an existing XML API application that is using ref_types, you will need to know which string ESI ref_type maps to which integer. You can look at the following file to see string-\u003eint mappings: https://github.com/ccpgames/eve-glue/blob/master/eve_glue/wallet_journal_ref.py\"",
                             "enum": [
                                 "acceleration_gate_fee",
+                                "achievement_category_milestone_reward",
+                                "achievement_milestone_reward",
                                 "advertisement_listing_fee",
                                 "agent_donation",
                                 "agent_location_services",
@@ -7545,6 +7569,7 @@
                                 "agent_mission_collateral_refunded",
                                 "agent_mission_reward",
                                 "agent_mission_reward_corporation_tax",
+                                "agent_mission_security_tax",
                                 "agent_mission_time_bonus_reward",
                                 "agent_mission_time_bonus_reward_corporation_tax",
                                 "agent_security_services",
@@ -7562,6 +7587,7 @@
                                 "bounty_reimbursement",
                                 "bounty_surcharge",
                                 "brokers_fee",
+                                "campaign_objective_isk_reward",
                                 "clone_activation",
                                 "clone_transfer",
                                 "contraband_fine",
@@ -7633,6 +7659,7 @@
                                 "gm_cash_transfer",
                                 "gm_plex_fee_refund",
                                 "industry_job_tax",
+                                "industry_security_tax",
                                 "infrastructure_hub_maintenance",
                                 "inheritance",
                                 "insurance",
@@ -7647,6 +7674,7 @@
                                 "market_escrow",
                                 "market_fine_paid",
                                 "market_provider_tax",
+                                "market_security_tax",
                                 "market_transaction",
                                 "medal_creation",
                                 "medal_issued",
@@ -7655,6 +7683,7 @@
                                 "mission_cost",
                                 "mission_expiration",
                                 "mission_reward",
+                                "npc_bounty_security_tax",
                                 "office_rental_fee",
                                 "operation_bonus",
                                 "opportunity_reward",
@@ -22416,6 +22445,11 @@
                 ],
                 "x-cache-age": 600,
                 "x-compatibility-date": "2020-01-01",
+                "x-rate-limit": {
+                    "group": "corp-structure",
+                    "max-tokens": 300,
+                    "window-size": "15m"
+                },
                 "x-required-roles": [
                     "Director"
                 ]
@@ -22989,6 +23023,11 @@
                 ],
                 "x-cache-age": 3600,
                 "x-compatibility-date": "2020-01-01",
+                "x-rate-limit": {
+                    "group": "corp-structure",
+                    "max-tokens": 300,
+                    "window-size": "15m"
+                },
                 "x-required-roles": [
                     "Factory_Manager"
                 ]
@@ -25310,6 +25349,11 @@
                 ],
                 "x-cache-age": 3600,
                 "x-compatibility-date": "2020-01-01",
+                "x-rate-limit": {
+                    "group": "corp-structure",
+                    "max-tokens": 300,
+                    "window-size": "15m"
+                },
                 "x-required-roles": [
                     "Director"
                 ]
@@ -25411,6 +25455,11 @@
                 ],
                 "x-cache-age": 3600,
                 "x-compatibility-date": "2020-01-01",
+                "x-rate-limit": {
+                    "group": "corp-structure",
+                    "max-tokens": 300,
+                    "window-size": "15m"
+                },
                 "x-required-roles": [
                     "Director"
                 ]
@@ -25512,6 +25561,11 @@
                 ],
                 "x-cache-age": 3600,
                 "x-compatibility-date": "2020-01-01",
+                "x-rate-limit": {
+                    "group": "corp-structure",
+                    "max-tokens": 300,
+                    "window-size": "15m"
+                },
                 "x-required-roles": [
                     "Station_Manager"
                 ]
@@ -29126,7 +29180,8 @@
                 "tags": [
                     "Meta"
                 ],
-                "x-cache-age": 0,
+                "x-cache-age": 600,
+                "x-cache-mode": "not-cached",
                 "x-compatibility-date": "2025-09-26",
                 "x-rate-limit": {
                     "group": "meta",
@@ -29193,7 +29248,8 @@
                 "tags": [
                     "Meta"
                 ],
-                "x-cache-age": 0,
+                "x-cache-age": 600,
+                "x-cache-mode": "not-cached",
                 "x-compatibility-date": "2020-01-01",
                 "x-rate-limit": {
                     "group": "meta",
