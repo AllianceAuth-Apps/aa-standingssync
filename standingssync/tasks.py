@@ -73,15 +73,15 @@ def character_delete_all_contacts(sync_char_pk: int):
     synced_character.delete_all_contacts()
 
 
-@shared_task(base=QueueOnce)
-def sync_all_wars():
+@shared_task(base=QueueOnce, bind=True)
+def sync_all_wars(_self):
     """Sync all wars from ESI."""
     war_ids = EveWar.objects.fetch_active_war_ids_esi()
     if not war_ids:
         return
 
     logger.info("Updating details for %d active wars from ESI.", len(war_ids))
-    sync_wars.apply_async(args=[war_ids], priority=DEFAULT_TASK_PRIORITY)
+    sync_wars.apply_async(args=[sorted(war_ids)], priority=DEFAULT_TASK_PRIORITY)
 
 
 @shared_task(bind=True)
