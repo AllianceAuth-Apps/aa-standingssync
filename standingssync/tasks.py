@@ -1,10 +1,11 @@
 """Tasks for standingssync."""
 
+from typing import List
+
 from celery import shared_task
 
 from esi.decorators import rate_limit_retry_task
 from eveuniverse.core.esitools import is_esi_online
-from eveuniverse.tasks import update_unresolved_eve_entities
 
 from allianceauth.services.hooks import get_extension_logger
 from allianceauth.services.tasks import QueueOnce
@@ -16,6 +17,7 @@ logger = get_extension_logger(__name__)
 
 
 DEFAULT_TASK_PRIORITY = 6
+SYNC_WARS_COUNTDOWN = 70  # delay in seconds for fetching each war. minimum is 60.
 
 
 @shared_task(base=QueueOnce)
@@ -75,19 +77,26 @@ def character_delete_all_contacts(sync_char_pk: int):
 def sync_all_wars():
     """Sync all wars from ESI."""
     war_ids = EveWar.objects.fetch_active_war_ids_esi()
-    if war_ids:
-        logger.info(
-            "Updating details for %d active wars from ESI.",
-            len(war_ids),
-        )
-        for war_id in war_ids:
-            run_war_sync.apply_async(args=[war_id], priority=DEFAULT_TASK_PRIORITY)
+    if not war_ids:
+        return
 
-    update_unresolved_eve_entities.apply_async(priority=DEFAULT_TASK_PRIORITY)
+    logger.info("Updating details for %d active wars from ESI.", len(war_ids))
+    sync_wars.apply_async(args=[war_ids], priority=DEFAULT_TASK_PRIORITY)
 
 
-@shared_task(base=QueueOnce, bind=True)
+@shared_task(bind=True)
 @rate_limit_retry_task
-def run_war_sync(_self, war_id: int):
+def sync_wars(_self, war_ids: List[int]):
     """Sync given war from ESI."""
+    try:
+        war_id = war_ids.pop()
+    except IndexError:
+        return
+
     EveWar.objects.update_or_create_from_esi(war_id)
+    if not war_ids:
+        return
+
+    sync_wars.apply_async(
+        args=[war_ids], countdown=SYNC_WARS_COUNTDOWN, priority=DEFAULT_TASK_PRIORITY
+    )

@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from celery.exceptions import Retry
 
@@ -144,39 +144,35 @@ class TestManagerSync(TestCase):
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
-@patch(TASKS_PATH + ".run_war_sync")
+@patch(TASKS_PATH + ".sync_wars")
 @patch(TASKS_PATH + ".EveWar.objects.fetch_active_war_ids_esi")
 class TestSyncAllWars(TestCase):
     def setUp(self):
         cache.clear()
 
     def test_should_start_tasks_for_each_war_id(
-        self, mock_calc_relevant_war_ids, mock_update_war
+        self, mock_calc_relevant_war_ids: MagicMock, mock_sync_war: MagicMock
     ):
         # given
         mock_calc_relevant_war_ids.return_value = [1, 2, 3]
         # when
-        tasks.sync_all_wars()
+        tasks.sync_all_wars.delay()
         # then
-        result = {
-            obj[1]["args"][0] for obj in mock_update_war.apply_async.call_args_list
-        }
-        self.assertSetEqual(result, {1, 2, 3})
+        self.assertEqual(mock_sync_war.apply_async.call_count, 1)
+        _, kwargs = mock_sync_war.apply_async.call_args
+        self.assertListEqual(kwargs["args"][0], [1, 2, 3])
 
     def test_should_not_start_any_war_update(
-        self, mock_calc_relevant_war_ids, mock_update_war
+        self, mock_calc_relevant_war_ids: MagicMock, mock_update_war: MagicMock
     ):
         # given
         mock_calc_relevant_war_ids.return_value = []
         # when
-        tasks.sync_all_wars()
+        tasks.sync_all_wars.delay()
         # then
-        result = {
-            obj[1]["args"][0] for obj in mock_update_war.apply_async.call_args_list
-        }
-        self.assertSetEqual(result, set())
+        self.assertFalse(mock_update_war.apply_async.called)
 
-    # @patch(TASKS_PATH + ".run_war_sync")
+    # @patch(TASKS_PATH + ".sync_wars")
     # @patch(TASKS_PATH + ".EveWar.objects.fetch_active_war_ids_esi")
     # def test_should_remove_older_finished_wars(
     #     self, mock_calc_relevant_war_ids, mock_update_war
@@ -194,16 +190,18 @@ class TestSyncAllWars(TestCase):
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
 @patch(TASKS_PATH + ".EveWar.objects.update_or_create_from_esi")
-class TestRunWarSync(NoSocketsTestCase):
+class TestSyncWars(NoSocketsTestCase):
     def setUp(self):
         cache.clear()
 
-    def test_should_update_war(self, mock_update_from_esi):
+    def test_should_update_war(self, mock_update_from_esi: MagicMock):
         # when
-        tasks.run_war_sync.delay(42)
+        tasks.sync_wars.delay([42, 99])
         # then
-        args, _ = mock_update_from_esi.call_args
-        self.assertEqual(args[0], 42)
+        self.assertEqual(mock_update_from_esi.call_count, 2)
+        got = [x[0][0] for x in mock_update_from_esi.call_args_list]
+        want = [99, 42]
+        self.assertListEqual(got, want)
 
     def test_should_retry_on_rate_limit_exhausted(self, mock_update_from_esi):
         # given
@@ -212,4 +210,4 @@ class TestRunWarSync(NoSocketsTestCase):
         mock_update_from_esi.side_effect = ex
         # when
         with self.assertRaises(Retry):
-            tasks.run_war_sync.delay(42)
+            tasks.sync_wars.delay([42])
