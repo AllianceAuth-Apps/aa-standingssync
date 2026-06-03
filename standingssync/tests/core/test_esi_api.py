@@ -195,13 +195,13 @@ class TestEsiContactsHelpers(NoSocketsTestCase):
         self.assertEqual(expected, result)
 
 
-class TestEsiWarsApi(TestCaseWithClearCache):
+class TestEsiWarsIDs(TestCaseWithClearCache):
     @pook.on
     def test_should_fetch_war_ids(self):
         # given
-        exception_ids = [2]
-        minimum_id = 4
-        war_ids = [5, 4]
+        exception_ids = [1]
+        minimum_id = 3
+        war_ids = [5, 4, 3, 2]
         pook.get(
             make_esi_url("wars"),
             reply=HTTPStatus.OK,
@@ -218,10 +218,38 @@ class TestEsiWarsApi(TestCaseWithClearCache):
                 MODULE_PATH + ".STANDINGSSYNC_UNFINISHED_WARS_MINIMUM_ID", minimum_id
             ),
         ):
-            result = esi_api.fetch_war_ids()
+            got = esi_api.fetch_war_ids()
 
         # then
-        self.assertSetEqual(result, set(war_ids) | set(exception_ids))
+        self.assertSetEqual(got, {5, 4, 3, 1})
+        self.assertTrue(pook.isdone())
+
+    @pook.on
+    def test_should_fetch_unknown_war_ids_only(self):
+        # given
+        exception_ids = [1]
+        minimum_id = 3
+        war_ids = [5, 4, 3, 2]
+        pook.get(
+            make_esi_url("wars"),
+            reply=HTTPStatus.OK,
+            response_json=war_ids,
+        )
+
+        # when
+        with (
+            patch(
+                MODULE_PATH + ".STANDINGSSYNC_UNFINISHED_WARS_EXCEPTION_IDS",
+                exception_ids,
+            ),
+            patch(
+                MODULE_PATH + ".STANDINGSSYNC_UNFINISHED_WARS_MINIMUM_ID", minimum_id
+            ),
+        ):
+            got = esi_api.fetch_war_ids(4)
+
+        # then
+        self.assertSetEqual(got, {5})
         self.assertTrue(pook.isdone())
 
     @pook.on
@@ -254,8 +282,8 @@ class TestEsiWarsApi(TestCaseWithClearCache):
             ),
             patch(MODULE_PATH + ".FETCH_WARS_MAX_ITEMS", page_size),
         ):
-            result = esi_api.fetch_war_ids()
+            got = esi_api.fetch_war_ids()
 
         # then
-        self.assertSetEqual(result, set(war_ids) | set(exception_ids))
+        self.assertSetEqual(got, set(war_ids) | set(exception_ids))
         self.assertTrue(pook.isdone())

@@ -1,9 +1,11 @@
+import datetime as dt
 from http import HTTPStatus
 from unittest.mock import patch
 
 import pook
 
 from django.test import TestCase, override_settings
+from django.utils.timezone import now
 from eveuniverse.tests.testdata.factories_2 import (
     EveEntityAllianceFactory,
     EveEntityCharacterFactory,
@@ -12,8 +14,8 @@ from eveuniverse.tests.testdata.factories_2 import (
 from allianceauth.eveonline.models import EveAllianceInfo
 
 from standingssync import tasks
-
-from .factories import (
+from standingssync.models import EveWar
+from standingssync.tests.factories import (
     EveWarFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
@@ -21,7 +23,7 @@ from .factories import (
     UserMainSyncerFactory,
     make_esi_url,
 )
-from .helpers import TestCaseWithClearCache
+from standingssync.tests.helpers import TestCaseWithClearCache, extract
 
 ESI_CONTACTS_PATH = "standingssync.core.esi_contacts"
 ESI_API_PATH = "standingssync.core.esi_api"
@@ -169,6 +171,49 @@ class TestTasksE2E(TestCaseWithClearCache):
 
         # then
         self.assertTrue(pook.isdone())
+
+    @pook.on
+    def test_sync_wars(self):
+        # given
+        war_id = 719980
+        pook.get(
+            make_esi_url("wars"),
+            reply=HTTPStatus.OK,
+            response_json=[war_id],
+        )
+        pook.get(
+            make_esi_url(f"wars/{war_id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "aggressor": {
+                    "alliance_id": EveEntityAllianceFactory().id,
+                    "isk_destroyed": 0,
+                    "ships_killed": 0,
+                },
+                "declared": (now() - dt.timedelta(days=5)).isoformat(),
+                "defender": {
+                    "alliance_id": EveEntityAllianceFactory().id,
+                    "isk_destroyed": 0,
+                    "ships_killed": 0,
+                },
+                "id": war_id,
+                "mutual": False,
+                "open_for_allies": True,
+                "started": (now() - dt.timedelta(days=4)).isoformat(),
+            },
+        )
+
+        # when
+        with (
+            patch(ESI_API_PATH + ".STANDINGSSYNC_UNFINISHED_WARS_EXCEPTION_IDS", []),
+            patch(ESI_API_PATH + ".STANDINGSSYNC_UNFINISHED_WARS_MINIMUM_ID", 0),
+        ):
+            tasks.sync_all_wars.delay()
+
+        # then
+        got = extract(EveWar.objects, "id")
+        want = {war_id}
+        self.assertEqual(got, want)
 
 
 class TestUI(TestCase):

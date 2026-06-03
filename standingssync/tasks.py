@@ -1,8 +1,6 @@
 """Tasks for standingssync."""
 
-from typing import List
-
-from celery import shared_task
+from celery import Task, shared_task
 
 from esi.decorators import rate_limit_retry_task
 from eveuniverse.core.esitools import is_esi_online
@@ -74,29 +72,23 @@ def character_delete_all_contacts(sync_char_pk: int):
 
 
 @shared_task(base=QueueOnce, bind=True)
+@rate_limit_retry_task
 def sync_all_wars(_self):
     """Sync all wars from ESI."""
-    war_ids = EveWar.objects.fetch_active_war_ids_esi()
-    if not war_ids:
-        return
-
-    logger.info("Updating details for %d active wars from ESI.", len(war_ids))
-    sync_wars.apply_async(args=[sorted(war_ids)], priority=DEFAULT_TASK_PRIORITY)
+    EveWar.objects.sync_known_wars()
+    if EveWar.objects.needs_update().exists():
+        sync_wars.apply_async(priority=DEFAULT_TASK_PRIORITY)
 
 
-@shared_task(bind=True)
+@shared_task(base=QueueOnce, bind=True, max_retries=None)
 @rate_limit_retry_task
-def sync_wars(_self, war_ids: List[int]):
-    """Sync given war from ESI."""
-    try:
-        war_id = war_ids.pop()
-    except IndexError:
+def sync_wars(self: Task):
+    """Sync given wars from ESI."""
+    war: EveWar = EveWar.objects.needs_update().order_by("-id").first()
+    if not war:
         return
 
-    EveWar.objects.update_or_create_from_esi(war_id)
-    if not war_ids:
-        return
+    war.update_from_esi()
 
-    sync_wars.apply_async(
-        args=[war_ids], countdown=SYNC_WARS_COUNTDOWN, priority=DEFAULT_TASK_PRIORITY
-    )
+    if EveWar.objects.needs_update().exists():
+        self.retry(countdown=0.6)

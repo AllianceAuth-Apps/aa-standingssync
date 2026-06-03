@@ -73,6 +73,16 @@ class EveWarFactory(
                 self.allies.add(ally)  # type: ignore
 
 
+class EveWarEmptyFactory(EveWarFactory):
+    aggressor = None
+    declared = None
+    defender = None
+    is_mutual = None
+    is_open_for_allies = None
+    started = None
+    retracted = None
+
+
 class UserMainManagerFactory(UserMainFactory):
     main_character__scopes = ["esi-alliances.read_contacts.v1"]
     permissions__ = ["standingssync.add_syncmanager"]

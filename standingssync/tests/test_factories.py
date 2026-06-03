@@ -1,6 +1,12 @@
 from app_utils.testing import NoSocketsTestCase
 
-from .factories import EveContactFactory, SyncedCharacterFactory, SyncManagerFactory
+from standingssync.tests.factories import (
+    EveContactFactory,
+    EveWarEmptyFactory,
+    EveWarFactory,
+    SyncedCharacterFactory,
+    SyncManagerFactory,
+)
 
 
 class TestEveContactFactory(NoSocketsTestCase):
@@ -30,3 +36,11 @@ class TestSyncedCharacterFactory(NoSocketsTestCase):
         sm = SyncManagerFactory()
         sc = SyncedCharacterFactory(manager=sm, create_alt=True)
         self.assertEqual(sc.character_ownership.user.character_ownerships.count(), 2)
+
+
+class TestEveWarFactory(NoSocketsTestCase):
+    def test_basic(self):
+        war_1 = EveWarFactory()
+        self.assertTrue(war_1.id)
+        war_2 = EveWarEmptyFactory()
+        self.assertTrue(war_2.id)

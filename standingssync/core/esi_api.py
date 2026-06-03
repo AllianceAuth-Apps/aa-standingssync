@@ -149,20 +149,27 @@ def _group_for_esi_update(
     return contacts_grouped
 
 
-def fetch_war_ids() -> Set[int]:
+def fetch_war_ids(min_war_id: int = 0) -> Set[int]:
     """Fetch IDs for new and unfinished wars from ESI.
 
     Will ignore older wars which are known to be already finished.
+
+    Args:
+        min_war_id: when provided will only return war IDs higher then this value.
+            this prevends this function to re-fetch the same war IDs again from ESI.
     """
     war_ids = []
     war_ids_page = esi.client.Wars.GetWars().result(use_etag=False)
+
     while True:
         war_ids += war_ids_page
         if (
             len(war_ids_page) < FETCH_WARS_MAX_ITEMS
             or min(war_ids_page) < STANDINGSSYNC_UNFINISHED_WARS_MINIMUM_ID
+            or min(war_ids_page) <= min_war_id
         ):
             break
+
         max_war_id = min(war_ids)
         war_ids_page = esi.client.Wars.GetWars(max_war_id=max_war_id).result(
             use_etag=False
@@ -176,6 +183,8 @@ def fetch_war_ids() -> Set[int]:
         if war_id >= STANDINGSSYNC_UNFINISHED_WARS_MINIMUM_ID
     }
     war_ids = war_ids.union(set(STANDINGSSYNC_UNFINISHED_WARS_EXCEPTION_IDS))
+    if min_war_id:
+        war_ids = {war_id for war_id in war_ids if war_id > min_war_id}
 
     return war_ids
 

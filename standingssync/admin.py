@@ -108,7 +108,7 @@ class EveWarAdmin(admin.ModelAdmin):
         return False
 
     def get_queryset(self, request):
-        qs = super().get_queryset(request).annotate_state().annotate_is_active()  # type: ignore
+        qs = super().get_queryset(request).filter(aggressor__isnull=False).annotate_state().annotate_is_active()  # type: ignore
         return qs.prefetch_related(
             Prefetch("allies", queryset=EveEntity.objects.select_related())
         ).annotate_state()

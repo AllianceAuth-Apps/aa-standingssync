@@ -1,6 +1,9 @@
 import datetime as dt
+from http import HTTPStatus
 from typing import Set
 from unittest.mock import patch
+
+import pook
 
 from django.utils.timezone import now
 from esi.errors import TokenExpiredError, TokenInvalidError
@@ -17,18 +20,29 @@ from app_utils.testdata_factories import EveCharacterFactory, UserMainFactory
 from app_utils.testing import NoSocketsTestCase
 
 from standingssync.core.esi_contacts import EsiContact, EsiContactsContainer
-from standingssync.models import EveContact, SyncedCharacter, SyncManager
+from standingssync.models import (
+    EveContact,
+    SyncedCharacter,
+    SyncManager,
+    _get_or_create_eve_entity_from_participant,
+)
 from standingssync.tests.factories import (
     EsiContactCharacterFactory,
     EsiContactLabelFactory,
     EveContactFactory,
+    EveWarEmptyFactory,
     EveWarFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
     UserMainManagerFactory,
     UserMainSyncerFactory,
+    make_esi_url,
 )
-from standingssync.tests.helpers import EsiCharacterContactsStub, extract
+from standingssync.tests.helpers import (
+    EsiCharacterContactsStub,
+    TestCaseWithClearCache,
+    extract,
+)
 
 ESI_CONTACTS_PATH = "standingssync.core.esi_contacts"
 ESI_API_PATH = "standingssync.core.esi_api"
@@ -914,6 +928,14 @@ class TestSyncCharacter_UpdateWtLabelInfo(NoSocketsTestCase):
         self.assertTrue(synced_character.has_war_targets_label)
 
 
+class TestEveContact(NoSocketsTestCase):
+    def test_str(self):
+        # given
+        contact = EveContactFactory(eve_entity__name="Alpha")
+        # when/then
+        self.assertEqual(str(contact), "Alpha")
+
+
 class TestEveWar(NoSocketsTestCase):
     def test_str(self):
         # given
@@ -924,9 +946,179 @@ class TestEveWar(NoSocketsTestCase):
         self.assertEqual(str(war), "Alpha vs. Bravo")
 
 
-class TestEveContact(NoSocketsTestCase):
-    def test_str(self):
+class TestEveWar_UpdateFromESI(TestCaseWithClearCache):
+    @pook.on
+    def test_should_update_full_war_from_esi(self):
         # given
-        contact = EveContactFactory(eve_entity__name="Alpha")
+        war = EveWarEmptyFactory()
+        declared = now() - dt.timedelta(days=5)
+        started = now() - dt.timedelta(days=4)
+        finished = now() + dt.timedelta(days=1)
+        retracted = now()
+        aggressor = EveEntityAllianceFactory()
+        ally_1 = EveEntityAllianceFactory()
+        ally_2 = EveEntityCorporationFactory()
+        defender = EveEntityAllianceFactory()
+        pook.get(
+            make_esi_url(f"wars/{war.id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "aggressor": {
+                    "alliance_id": aggressor.id,
+                    "isk_destroyed": 0,
+                    "ships_killed": 0,
+                },
+                "allies": [{"alliance_id": ally_1.id}, {"corporation_id": ally_2.id}],
+                "declared": declared.isoformat(),
+                "defender": {
+                    "alliance_id": defender.id,
+                    "isk_destroyed": 0,
+                    "ships_killed": 0,
+                },
+                "finished": finished.isoformat(),
+                "id": war.id,
+                "mutual": False,
+                "open_for_allies": True,
+                "retracted": retracted.isoformat(),
+                "started": started.isoformat(),
+            },
+        )
+
+        # when
+        war.update_from_esi()
+
+        # then
+        war.refresh_from_db()
+        self.assertEqual(war.aggressor, aggressor)
+        self.assertCountEqual(war.allies.all(), [ally_1, ally_2])
+        self.assertEqual(war.declared, declared)
+        self.assertEqual(war.defender, defender)
+        self.assertEqual(war.finished, finished)
+        self.assertFalse(war.is_mutual)
+        self.assertTrue(war.is_open_for_allies)
+        self.assertEqual(war.retracted, retracted)
+        self.assertEqual(war.started, started)
+
+    @pook.on
+    def test_should_update_minimal_warfrom_esi(self):
+        # given
+        war = EveWarEmptyFactory()
+        declared = now() - dt.timedelta(days=5)
+        started = now() - dt.timedelta(days=4)
+        aggressor = EveEntityAllianceFactory()
+        defender = EveEntityAllianceFactory()
+        pook.get(
+            make_esi_url(f"wars/{war.id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "aggressor": {
+                    "alliance_id": aggressor.id,
+                    "isk_destroyed": 0,
+                    "ships_killed": 0,
+                },
+                "declared": declared.isoformat(),
+                "defender": {
+                    "alliance_id": defender.id,
+                    "isk_destroyed": 0,
+                    "ships_killed": 0,
+                },
+                "id": war.id,
+                "mutual": False,
+                "open_for_allies": True,
+                "started": started.isoformat(),
+            },
+        )
+
+        # when
+        war.update_from_esi()
+
+        # then
+        war.refresh_from_db()
+        self.assertEqual(war.aggressor, aggressor)
+        self.assertEqual(war.allies.count(), 0)
+        self.assertEqual(war.declared, declared)
+        self.assertEqual(war.defender, defender)
+        self.assertIsNone(war.finished)
+        self.assertFalse(war.is_mutual)
+        self.assertTrue(war.is_open_for_allies)
+        self.assertIsNone(war.retracted)
+        self.assertEqual(war.started, started)
+
+    @pook.on
+    def test_should_update_existing_war_from_esi(self):
+        # given
+        war = EveWarFactory()
+        declared = now() - dt.timedelta(days=5)
+        started = now() - dt.timedelta(days=4)
+        finished = now() + dt.timedelta(days=1)
+        retracted = now()
+        aggressor = EveEntityAllianceFactory()
+        ally_1 = EveEntityAllianceFactory()
+        ally_2 = EveEntityCorporationFactory()
+        defender = EveEntityAllianceFactory()
+        pook.get(
+            make_esi_url(f"wars/{war.id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "aggressor": {
+                    "alliance_id": aggressor.id,
+                    "isk_destroyed": 0,
+                    "ships_killed": 0,
+                },
+                "allies": [{"alliance_id": ally_1.id}, {"corporation_id": ally_2.id}],
+                "declared": declared.isoformat(),
+                "defender": {
+                    "alliance_id": defender.id,
+                    "isk_destroyed": 0,
+                    "ships_killed": 0,
+                },
+                "finished": finished.isoformat(),
+                "id": war.id,
+                "mutual": False,
+                "open_for_allies": True,
+                "retracted": retracted.isoformat(),
+                "started": started.isoformat(),
+            },
+        )
+
+        # when
+        war.update_from_esi()
+
+        # then
+        war.refresh_from_db()
+        self.assertEqual(war.aggressor, aggressor)
+        self.assertCountEqual(war.allies.all(), [ally_1, ally_2])
+        self.assertEqual(war.declared, declared)
+        self.assertEqual(war.defender, defender)
+        self.assertEqual(war.finished, finished)
+        self.assertFalse(war.is_mutual)
+        self.assertTrue(war.is_open_for_allies)
+        self.assertEqual(war.retracted, retracted)
+        self.assertEqual(war.started, started)
+
+
+class TestEveWarManager__GetOrCreateEveEntityFromParticipant(NoSocketsTestCase):
+    def test_should_create_from_alliance_id(self):
+        # given
+        alliance = EveEntityAllianceFactory()
+        data = {"alliance_id": alliance.id}
+        # when
+        result = _get_or_create_eve_entity_from_participant(data)
+        # then
+        self.assertEqual(result, alliance)
+
+    def test_should_create_from_corporation_id(self):
+        # given
+        corporation = EveEntityCorporationFactory()
+        data = {"corporation_id": corporation.id}
+        # when
+        result = _get_or_create_eve_entity_from_participant(data)
+        # then
+        self.assertEqual(result, corporation)
+
+    def test_should_raise_error_when_no_id_found(self):
+        # given
+        data = {}
         # when/then
-        self.assertEqual(str(contact), "Alpha")
+        with self.assertRaises(ValueError):
+            _get_or_create_eve_entity_from_participant(data)

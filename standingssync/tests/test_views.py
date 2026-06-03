@@ -17,8 +17,7 @@ from app_utils.testing import NoSocketsTestCase, add_character_to_user
 
 from standingssync import views
 from standingssync.models import SyncedCharacter, SyncManager
-
-from .factories import (
+from standingssync.tests.factories import (
     EveContactFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
