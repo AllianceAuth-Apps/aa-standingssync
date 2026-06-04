@@ -19,7 +19,7 @@ logger = get_extension_logger(__name__)
 
 DEFAULT_TASK_PRIORITY = 6
 ONCE_TIMEOUT = 1000  # once timeout determined by max rate limit reset + contingency
-SYNC_WAR_DELAY = 0.55  # delay in seconds for fetching each war with contigency.
+SYNC_WAR_DELAY = 0.6  # delay in seconds for fetching each war with contigency.
 
 
 @shared_task(base=QueueOnce)

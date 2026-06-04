@@ -21,8 +21,8 @@ from standingssync.tests.factories import (
     EveContactFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
+    UserMainDefaultFactory,
     UserMainManagerFactory,
-    UserMainSyncerFactory,
 )
 
 MODULE_PATH = "standingssync.views"
@@ -37,7 +37,7 @@ class TestMainScreen(TestCase):
 
         cls.user_manager = UserMainManagerFactory()
         cls.sync_manager = SyncManagerFactory(user=cls.user_manager)
-        cls.user_normal = UserMainSyncerFactory(
+        cls.user_normal = UserMainDefaultFactory(
             main_character__alliance_id=cls.sync_manager.alliance.alliance_id
         )
         cls.sync_char = SyncedCharacterFactory(
@@ -94,7 +94,7 @@ class TestAddSyncChar(NoSocketsTestCase):
         cls.sync_manager = SyncManagerFactory(user=cls.user_manager)
 
         cls.character_normal = EveCharacterFactory(corporation__alliance=alliance)
-        cls.user_normal = UserMainSyncerFactory(
+        cls.user_normal = UserMainDefaultFactory(
             main_character__character=cls.character_normal
         )
 

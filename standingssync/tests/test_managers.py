@@ -17,7 +17,7 @@ from standingssync.tests.factories import (
     EveWarEmptyFactory,
     EveWarFactory,
     SyncManagerFactory,
-    UserMainSyncerFactory,
+    UserMainDefaultFactory,
 )
 from standingssync.tests.helpers import extract
 
@@ -150,6 +150,17 @@ class TestEveWarQueryset(NoSocketsTestCase):
         expected = {war_1.id, war_2.id, war_3.id}
         result = set(qs.values_list("id", flat=True))
         self.assertSetEqual(expected, result)
+
+    def test_should_return_non_empty_wars(self):
+        # given
+        war = EveWarFactory()
+        EveWarEmptyFactory()
+
+        # when
+        got = EveWar.objects.non_empty()
+
+        # then
+        self.assertCountEqual(got, [war])
 
     def test_should_return_wars_that_need_update_only(self):
         # given
@@ -340,7 +351,7 @@ class TestEveWarManager_ActiveWars(NoSocketsTestCase):
 class TestSyncManagerManager(NoSocketsTestCase):
     def test_should_return_matching_sync_manager(self):
         # given
-        user = UserMainSyncerFactory()
+        user = UserMainDefaultFactory()
         alliance = EveAllianceInfoFactory(
             alliance_id=user.profile.main_character.alliance_id
         )
@@ -352,7 +363,7 @@ class TestSyncManagerManager(NoSocketsTestCase):
 
     def test_should_return_none_when_no_match(self):
         # given
-        user = UserMainSyncerFactory()
+        user = UserMainDefaultFactory()
         SyncManagerFactory()
         # when
         result = SyncManager.objects.fetch_for_user(user)

@@ -19,8 +19,8 @@ from standingssync.tests.factories import (
     EveWarFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
+    UserMainDefaultFactory,
     UserMainManagerFactory,
-    UserMainSyncerFactory,
     make_esi_url,
 )
 from standingssync.tests.helpers import TestCaseWithClearCache, extract
@@ -219,7 +219,7 @@ class TestTasksE2E(TestCaseWithClearCache):
 class TestUI(TestCase):
     def test_should_open_main_page_wo_syn_manager(self):
         # given
-        user = UserMainSyncerFactory()
+        user = UserMainDefaultFactory()
         self.client.force_login(user)
         # when
         response = self.client.get("/standingssync/characters")
@@ -228,7 +228,7 @@ class TestUI(TestCase):
 
     def test_should_open_main_page_w_sync_manager_and_chars(self):
         # given
-        user = UserMainSyncerFactory()
+        user = UserMainDefaultFactory()
         alliance = EveAllianceInfo.objects.get(
             alliance_id=user.profile.main_character.alliance_id
         )
@@ -242,7 +242,7 @@ class TestUI(TestCase):
 
     def test_should_open_wars_page_w_sync_manager(self):
         # given
-        user = UserMainSyncerFactory()
+        user = UserMainDefaultFactory()
         alliance = EveAllianceInfo.objects.get(
             alliance_id=user.profile.main_character.alliance_id
         )
@@ -256,7 +256,7 @@ class TestUI(TestCase):
 
     def test_should_open_wars_page_wo_sync_manager(self):
         # given
-        user = UserMainSyncerFactory()
+        user = UserMainDefaultFactory()
         self.client.force_login(user)
         # when
         response = self.client.get("/standingssync/wars")

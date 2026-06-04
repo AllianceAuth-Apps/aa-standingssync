@@ -34,8 +34,8 @@ from standingssync.tests.factories import (
     EveWarFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
+    UserMainDefaultFactory,
     UserMainManagerFactory,
-    UserMainSyncerFactory,
     make_esi_url,
 )
 from standingssync.tests.helpers import (
@@ -322,7 +322,7 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
 
     def test_should_abort_when_insufficient_permission(self, mock_esi_api):
         # given
-        sync_manager = SyncManagerFactory(user=UserMainSyncerFactory())
+        sync_manager = SyncManagerFactory(user=UserMainDefaultFactory())
 
         # when/then
         with self.assertRaises(RuntimeError):

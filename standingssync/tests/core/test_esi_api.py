@@ -12,8 +12,8 @@ from standingssync.core.esi_contacts import EsiContact
 from standingssync.tests.factories import (
     EsiContactCharacterFactory,
     EsiContactLabelFactory,
+    UserMainDefaultFactory,
     UserMainManagerFactory,
-    UserMainSyncerFactory,
     make_esi_url,
 )
 from standingssync.tests.helpers import TestCaseWithClearCache
@@ -56,7 +56,7 @@ class TestEsiApi(TestCaseWithClearCache):
     @pook.on
     def test_should_fetch_character_contacts(self):
         # given
-        user = UserMainSyncerFactory()
+        user = UserMainDefaultFactory()
         character_id = user.profile.main_character.character_id
         token = user.token_set.first()
         contact_id = 1001
@@ -83,7 +83,7 @@ class TestEsiApi(TestCaseWithClearCache):
     @pook.on
     def test_should_fetch_contact_labels(self):
         # given
-        user = UserMainSyncerFactory()
+        user = UserMainDefaultFactory()
         character_id = user.profile.main_character.character_id
         token = user.token_set.first()
         label_1 = EsiContactLabelFactory()
@@ -107,7 +107,7 @@ class TestEsiApi(TestCaseWithClearCache):
     @pook.on
     def test_should_add_character_contact(self):
         # given
-        user = UserMainSyncerFactory()
+        user = UserMainDefaultFactory()
         character_id = user.profile.main_character.character_id
         token = user.token_set.first()
         standing = 5.0
@@ -131,7 +131,7 @@ class TestEsiApi(TestCaseWithClearCache):
     @pook.on
     def test_should_update_character_contact(self):
         # given
-        user = UserMainSyncerFactory()
+        user = UserMainDefaultFactory()
         character_id = user.profile.main_character.character_id
         token = user.token_set.first()
         standing = 5.0
@@ -154,7 +154,7 @@ class TestEsiApi(TestCaseWithClearCache):
     @pook.on
     def test_should_delete_character_contact(self):
         # given
-        user = UserMainSyncerFactory()
+        user = UserMainDefaultFactory()
         character_id = user.profile.main_character.character_id
         token = user.token_set.first()
         contact = EsiContact.from_eve_entity(EveEntityCharacterFactory(), standing=5.0)

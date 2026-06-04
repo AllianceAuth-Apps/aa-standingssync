@@ -48,6 +48,9 @@ class EveWarFactory(
     class Meta:
         model = EveWar
 
+    class Params:
+        is_finished = factory.Trait(finished=now())
+
     id = factory.Sequence(lambda n: 1 + n)
     aggressor = factory.SubFactory(EveEntityAllianceFactory)
     declared = factory.fuzzy.FuzzyDateTime(
@@ -88,7 +91,7 @@ class UserMainManagerFactory(UserMainFactory):
     permissions__ = ["standingssync.add_syncmanager"]
 
 
-class UserMainSyncerFactory(UserMainFactory):
+class UserMainDefaultFactory(UserMainFactory):
     main_character__scopes = [
         "esi-characters.read_contacts.v1",
         "esi-characters.write_contacts.v1",
@@ -141,7 +144,7 @@ class SyncedCharacterFactory(
     def character_ownership(self):
         if not self.user:
             character = EveCharacterFactory(corporation__alliance=self.manager.alliance)
-            user = UserMainSyncerFactory(main_character__character=character)
+            user = UserMainDefaultFactory(main_character__character=character)
             return user.profile.main_character.character_ownership  # type: ignore
 
         return self.user.profile.main_character.character_ownership  # type: ignore

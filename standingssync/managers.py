@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 from django.contrib.auth.models import User
 from django.db import models
-from django.db.models import Case, Max, Value, When
+from django.db.models import Case, Max, Q, Value, When
 from django.utils.timezone import now
 from eveuniverse.models import EveEntity
 
@@ -92,27 +92,39 @@ class EveWarQuerySet(models.QuerySet):
 
     def active_wars(self) -> models.QuerySet:
         """Add filter for active wars."""
-        qs = self.filter(started__lt=now())
-        return (
-            qs.filter(finished__gt=now()) | qs.filter(finished__isnull=True)
+        qs = self.filter(
+            Q(started__lt=now()) & (Q(finished__gt=now()) | Q(finished__isnull=True))
         ).distinct()
+        return qs
 
     def alliance_wars(self, alliance: EveAllianceInfo) -> models.QuerySet:
         """Include wars where a given alliance is participating only."""
-        return (
-            self.filter(aggressor_id=alliance.alliance_id)
-            | self.filter(defender_id=alliance.alliance_id)
-            | self.filter(allies__id=alliance.alliance_id)
+        qs = (
+            self.filter(
+                Q(aggressor_id=alliance.alliance_id)
+                | Q(defender_id=alliance.alliance_id)
+                | Q(allies__id=alliance.alliance_id)
+            )
         ).distinct()
+        return qs
 
     def needs_update(self) -> models.QuerySet:
         """Filter for wars that need to be updated."""
         threshold = now() - dt.timedelta(hours=1)
-        qs = self.exclude(finished__isnull=False)  # finished wars
-        return (
-            qs.filter(aggressor__isnull=True)  # empty wars
-            | qs.filter(last_modified__lt=threshold)  # stale active war
+        qs = self.filter(
+            Q(finished__isnull=True)
+            & (
+                Q(aggressor__isnull=True)  # empty wars
+                | Q(last_modified__lt=threshold)  # stale active war
+            )
         ).distinct()
+        return qs
+
+    def non_empty(self) -> models.QuerySet:
+        """Filter non-empty war objects."""
+        return self.filter(
+            aggressor__isnull=False, declared__isnull=False, defender__isnull=False
+        )
 
 
 class EveWarManagerBase(models.Manager):
