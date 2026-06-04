@@ -15,7 +15,7 @@ from eveuniverse.models import EveEntity
 from allianceauth.eveonline.models import EveAllianceInfo
 from allianceauth.services.hooks import get_extension_logger
 
-from .core import esi_api
+from standingssync.core import esi_api
 
 logger = get_extension_logger(__name__)
 
@@ -39,7 +39,7 @@ EveContactManager = EveContactManagerBase.from_queryset(EveContactQuerySet)
 class EveWarQuerySet(models.QuerySet):
     def annotate_state(self) -> models.QuerySet:
         """Add state field to queryset."""
-        from .models import EveWar
+        from standingssync.models import EveWar
 
         return self.annotate(
             state=Case(
@@ -139,7 +139,7 @@ class EveWarManagerBase(models.Manager):
 
     def sync_known_wars(self):
         """Synchronizes which wars are known. Wars are known if they have an ID."""
-        from .models import EveWar
+        from standingssync.models import EveWar
 
         min_war_id = self.aggregate(Max("id", default=0)).get("id__max") or 0
         war_ids = esi_api.fetch_war_ids(min_war_id)

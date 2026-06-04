@@ -16,17 +16,17 @@ from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter
 from allianceauth.notifications import notify
 from allianceauth.services.hooks import get_extension_logger
 
-from .app_settings import (
+from standingssync.app_settings import (
     STANDINGSSYNC_ADD_WAR_TARGETS,
     STANDINGSSYNC_CHAR_MIN_STANDING,
     STANDINGSSYNC_REPLACE_CONTACTS,
     STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED,
     STANDINGSSYNC_SYNC_TIMEOUT,
 )
-from .core import esi_api
-from .core.esi_contacts import EsiContact, EsiContactsContainer
-from .helpers import store_json
-from .managers import EveContactManager, EveWarManager, SyncManagerManager
+from standingssync.core import esi_api
+from standingssync.core.esi_contacts import EsiContact, EsiContactsContainer
+from standingssync.helpers import store_json
+from standingssync.managers import EveContactManager, EveWarManager, SyncManagerManager
 
 logger = get_extension_logger(__name__)
 

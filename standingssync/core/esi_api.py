@@ -12,9 +12,8 @@ from standingssync.app_settings import (
     STANDINGSSYNC_UNFINISHED_WARS_EXCEPTION_IDS,
     STANDINGSSYNC_UNFINISHED_WARS_MINIMUM_ID,
 )
+from standingssync.core.esi_contacts import EsiContact, EsiContactLabel
 from standingssync.providers import esi
-
-from .esi_contacts import EsiContact, EsiContactLabel
 
 logger = get_extension_logger(__name__)
 

@@ -6,8 +6,8 @@ from django.contrib import admin
 from django.db.models import Prefetch
 from eveuniverse.models import EveEntity
 
-from . import tasks
-from .models import EveContact, EveWar, SyncedCharacter, SyncManager
+from standingssync import tasks
+from standingssync.models import EveContact, EveWar, SyncedCharacter, SyncManager
 
 
 @admin.register(EveContact)

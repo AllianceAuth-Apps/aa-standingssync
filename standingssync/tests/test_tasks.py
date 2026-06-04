@@ -146,46 +146,31 @@ class TestManagerSync(TestCase):
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
-@patch(TASKS_PATH + ".sync_wars")
+@patch(TASKS_PATH + ".sync_stale_war")
 @patch(TASKS_PATH + ".EveWar.objects.sync_known_wars")
 class TestSyncAllWars(TestCase):
     def setUp(self):
         cache.clear()
 
     def test_should_start_sync_wars_task_when_wars_to_sync(
-        self, mock_calc_relevant_war_ids: MagicMock, mock_sync_war: MagicMock
+        self, mock_calc_relevant_war_ids: MagicMock, mock_sync_stale_war: MagicMock
     ):
         # given
         EveWarEmptyFactory()
         # when
         tasks.sync_all_wars.delay()
         # then
-        self.assertEqual(mock_sync_war.apply_async.call_count, 1)
+        self.assertEqual(mock_sync_stale_war.apply_async.call_count, 1)
 
     def test_should_not_start_sync_wars_tasks_when_no_wars_to_sync(
-        self, mock_calc_relevant_war_ids: MagicMock, mock_sync_war: MagicMock
+        self, mock_calc_relevant_war_ids: MagicMock, mock_sync_stale_war: MagicMock
     ):
         # given
         EveWarFactory(finished=now())
         # when
         tasks.sync_all_wars.delay()
         # then
-        self.assertEqual(mock_sync_war.apply_async.call_count, 0)
-
-    # @patch(TASKS_PATH + ".sync_wars")
-    # @patch(TASKS_PATH + ".EveWar.objects.sync_known_wars")
-    # def test_should_remove_older_finished_wars(
-    #     self, mock_calc_relevant_war_ids, mock_update_war
-    # ):
-    #     # given
-    #     mock_calc_relevant_war_ids.return_value = [2]
-    #     EveWarFactory(id=1)
-    #     EveWarFactory(id=2)
-    #     # when
-    #     tasks.sync_all_wars()
-    #     # then
-    #     current_war_ids = set(EveWar.objects.values_list("id", flat=True))
-    #     self.assertSetEqual(current_war_ids, {2})
+        self.assertEqual(mock_sync_stale_war.apply_async.call_count, 0)
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)

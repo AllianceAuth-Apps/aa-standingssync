@@ -11,14 +11,14 @@ from eveuniverse.core.esitools import is_esi_online
 from allianceauth.services.hooks import get_extension_logger
 from allianceauth.services.tasks import QueueOnce
 
-from .app_settings import STANDINGSSYNC_ADD_WAR_TARGETS
-from .models import EveWar, SyncedCharacter, SyncManager
+from standingssync.app_settings import STANDINGSSYNC_ADD_WAR_TARGETS
+from standingssync.models import EveWar, SyncedCharacter, SyncManager
 
 logger = get_extension_logger(__name__)
 
 
 DEFAULT_TASK_PRIORITY = 6
-ONCE_TIMEOUT = 1000  # once timeout determined by rate limit reset + contingency
+ONCE_TIMEOUT = 1000  # once timeout determined by max rate limit reset + contingency
 SYNC_WAR_DELAY = 0.55  # delay in seconds for fetching each war with contigency.
 
 
@@ -96,11 +96,12 @@ def sync_stale_war(self: Task):
         return
 
     logger.info(
-        "%d stale wars need to be udpated. Starting to update war ID %d",
+        "%d stale wars need to be updated. Starting to update war ID %d",
         wars_to_update.count(),
         war.id,
     )
     war.update_from_esi()
+    logger.info("Updated war with ID %d", war.id)
 
     delay = SYNC_WAR_DELAY
     logger.debug("Waiting %f seconds for next rate limit slot", delay)

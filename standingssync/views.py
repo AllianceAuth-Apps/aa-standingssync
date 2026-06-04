@@ -12,14 +12,13 @@ from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter
 from allianceauth.services.hooks import get_extension_logger
 
 from standingssync import __title__, tasks
-
-from .app_settings import (
+from standingssync.app_settings import (
     STANDINGSSYNC_ADD_WAR_TARGETS,
     STANDINGSSYNC_CHAR_MIN_STANDING,
     STANDINGSSYNC_REPLACE_CONTACTS,
     STANDINGSSYNC_WAR_TARGETS_LABEL_NAME,
 )
-from .models import EveWar, SyncedCharacter, SyncManager
+from standingssync.models import EveWar, SyncedCharacter, SyncManager
 
 logger = get_extension_logger(__name__)
 
