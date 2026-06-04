@@ -204,7 +204,7 @@ class TestSyncWars(NoSocketsTestCase):
 
         mock_update_from_esi.side_effect = update
         # when
-        tasks.sync_wars.delay()
+        tasks.sync_stale_war.delay()
         # then
         self.assertEqual(mock_update_from_esi.call_count, 1)
 
@@ -212,7 +212,7 @@ class TestSyncWars(NoSocketsTestCase):
         # given
         EveWarFactory(finished=now())
         # when
-        tasks.sync_wars.delay()
+        tasks.sync_stale_war.delay()
         # then
         self.assertEqual(mock_update_from_esi.call_count, 0)
 
@@ -224,4 +224,4 @@ class TestSyncWars(NoSocketsTestCase):
         EveWarEmptyFactory()
         # when
         with self.assertRaises(Retry):
-            tasks.sync_wars.delay()
+            tasks.sync_stale_war.delay()

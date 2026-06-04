@@ -1,7 +1,10 @@
 """Tasks for standingssync."""
 
+import time
+
 from celery import Task, shared_task
 
+from django.db.models import QuerySet
 from esi.decorators import rate_limit_retry_task
 from eveuniverse.core.esitools import is_esi_online
 
@@ -15,7 +18,8 @@ logger = get_extension_logger(__name__)
 
 
 DEFAULT_TASK_PRIORITY = 6
-SYNC_WARS_COUNTDOWN = 70  # delay in seconds for fetching each war. minimum is 60.
+ONCE_TIMEOUT = 1000  # once timeout determined by rate limit reset + contingency
+SYNC_WAR_DELAY = 0.55  # delay in seconds for fetching each war with contigency.
 
 
 @shared_task(base=QueueOnce)
@@ -71,24 +75,36 @@ def character_delete_all_contacts(sync_char_pk: int):
     synced_character.delete_all_contacts()
 
 
-@shared_task(base=QueueOnce, bind=True)
+@shared_task(base=QueueOnce, bind=True, once={"timeout": ONCE_TIMEOUT})
 @rate_limit_retry_task
 def sync_all_wars(_self):
     """Sync all wars from ESI."""
     EveWar.objects.sync_known_wars()
     if EveWar.objects.needs_update().exists():
-        sync_wars.apply_async(priority=DEFAULT_TASK_PRIORITY)
+        sync_stale_war.apply_async(priority=DEFAULT_TASK_PRIORITY)
 
 
-@shared_task(base=QueueOnce, bind=True, max_retries=None)
+@shared_task(
+    base=QueueOnce, bind=True, max_retries=None, once={"timeout": ONCE_TIMEOUT}
+)
 @rate_limit_retry_task
-def sync_wars(self: Task):
-    """Sync given wars from ESI."""
-    war: EveWar = EveWar.objects.needs_update().order_by("-id").first()
+def sync_stale_war(self: Task):
+    """Update the newest stale war from ESI."""
+    wars_to_update: QuerySet[EveWar] = EveWar.objects.needs_update()
+    war: EveWar = wars_to_update.order_by("-id").first()
     if not war:
         return
 
+    logger.info(
+        "%d stale wars need to be udpated. Starting to update war ID %d",
+        wars_to_update.count(),
+        war.id,
+    )
     war.update_from_esi()
 
+    delay = SYNC_WAR_DELAY
+    logger.debug("Waiting %f seconds for next rate limit slot", delay)
+    time.sleep(delay)
+
     if EveWar.objects.needs_update().exists():
-        self.retry(countdown=0.6)
+        self.retry(countdown=0.01)
