@@ -108,7 +108,13 @@ class EveWarAdmin(admin.ModelAdmin):
         return False
 
     def get_queryset(self, request):
-        qs = super().get_queryset(request).filter(aggressor__isnull=False).annotate_state().annotate_is_active()  # type: ignore
+        qs = (
+            super()
+            .get_queryset(request)
+            .filter(aggressor__isnull=False)
+            .annotate_state()
+            .annotate_is_active()
+        )
         return qs.prefetch_related(
             Prefetch("allies", queryset=EveEntity.objects.select_related())
         ).annotate_state()
@@ -119,6 +125,15 @@ class EveWarAdmin(admin.ModelAdmin):
     # def _allies(self, obj):
     #     allies = sorted([str(ally) for ally in obj.allies.all()])
     #     return format_html("<br>".join(allies)) if allies else "-"
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        total = EveWar.objects.count()
+        if total:
+            updated = EveWar.objects.filter(aggressor__isnull=False).count()
+            p = int(round(updated / total * 100, 0))
+            extra_context["completion_p"] = p
+        return super().changelist_view(request, extra_context=extra_context)
 
 
 @admin.register(SyncedCharacter)
