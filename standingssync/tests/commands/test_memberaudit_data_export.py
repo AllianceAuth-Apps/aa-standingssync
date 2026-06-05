@@ -10,13 +10,26 @@ from standingssync.tests.factories import EveWarEmptyFactory, EveWarFactory
 
 
 class TestCalcWarIds_Command(NoSocketsTestCase):
-    def test_should_reset_section_data_for_characters(self):
+    def test_should_return_id_in_output(self):
         # given
         EveWarFactory(id=42)
         out = StringIO()
 
         # when
         call_command("standingssync_calc_war_ids", stdout=out)
+
+        # then
+        self.assertIn("42", out.getvalue())
+
+    def test_should_allow_custom_number_of_special_ids(self):
+        # given
+        EveWarFactory(id=42)
+        out = StringIO()
+
+        # when
+        call_command(
+            "standingssync_calc_war_ids", "--max-special-ids", "30", stdout=out
+        )
 
         # then
         self.assertIn("42", out.getvalue())

@@ -126,6 +126,14 @@ class EveWarQuerySet(models.QuerySet):
             aggressor__isnull=False, declared__isnull=False, defender__isnull=False
         )
 
+    def empty(self) -> models.QuerySet:
+        """Filter empty war objects."""
+        return self.filter(
+            Q(aggressor__isnull=True)
+            | Q(declared__isnull=True)
+            | Q(defender__isnull=True)
+        )
+
 
 class EveWarManagerBase(models.Manager):
     def alliance_war_targets(
@@ -164,6 +172,14 @@ class EveWarManagerBase(models.Manager):
         wars = (EveWar(id=war_id) for war_id in unknown_ids)
         EveWar.objects.bulk_create(wars, batch_size=500, ignore_conflicts=True)
         logger.info("Created %d new wars", len(unknown_ids))
+
+    def updated_percentage(self) -> float:
+        "Return the percentage of updated wars. Will return 0 when there are no wars."
+        total = self.count()
+        if not total:
+            return 0
+        updated = self.non_empty().count()
+        return updated / total
 
 
 EveWarManager = EveWarManagerBase.from_queryset(EveWarQuerySet)

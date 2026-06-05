@@ -18,6 +18,7 @@ This release adds support for Alliance Auth V5 and contains breaking changes.
 - Removed logger tag
 - Migrated ESI client to OpenAPI
 - Modernized test suite
+- Reworked logic for fetching wars to accomdate rate limit contraints
 
 ## [2.0.0] - 2026-03-26
 

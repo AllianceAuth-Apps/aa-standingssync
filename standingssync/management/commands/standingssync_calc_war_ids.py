@@ -1,17 +1,20 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models import QuerySet
 
-from standingssync import __title__, __version__
 from standingssync.models import EveWar
 
 
 class Command(BaseCommand):
-    help = "Calculates the minimum and special war IDs."
+    help = (
+        "Calculates the minimum and special war IDs "
+        "to reduce how many wars need to be fetched from ESI."
+    )
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--max-special-ids",
             default=20,
+            type=int,
             help="Maximum number of special unfinished IDs to compile",
         )
         parser.add_argument(
@@ -21,8 +24,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        self.stdout.write(f"*** {__title__} v{__version__} - Calculate war IDs ***")
-
         wars: QuerySet[EveWar] = EveWar.objects.non_empty()
         total_wars = wars.count()
         if not options["disable_checks"]:
@@ -32,11 +33,11 @@ class Command(BaseCommand):
                     "Please update wars from ESI before running this command."
                 )
 
-            stale_wars = EveWar.objects.needs_update().count()
-            if stale_wars:
+            updated: float = EveWar.objects.updated_percentage()
+            if updated < 1:
                 raise CommandError(
-                    f"{stale_wars} stale wars found. "
-                    "Please update all wars from ESI before running this command."
+                    f"Only {updated * 100:.0f} wars are updated. "
+                    "Please finished updating all wars from ESI before running this command."
                 )
 
         self.stdout.write(f"Wars in database: {total_wars}")
