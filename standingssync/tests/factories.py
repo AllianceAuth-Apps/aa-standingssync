@@ -1,25 +1,40 @@
 """Model test factories."""
 
 import datetime as dt
+import urllib.parse
 from typing import Generic, TypeVar
 
 import factory
 import factory.fuzzy
 
 from django.utils.timezone import now
-from eveuniverse.models import EveEntity
+from eveuniverse.tests.testdata.factories_2 import (
+    EveEntityAllianceFactory,
+    EveEntityCharacterFactory,
+)
 
 from app_utils.testdata_factories import (
     EveAllianceInfoFactory,
     EveCharacterFactory,
-    EveCorporationInfoFactory,
     UserMainFactory,
 )
+from app_utils.testing import add_character_to_user
 
 from standingssync.core.esi_contacts import EsiContact, EsiContactLabel
 from standingssync.models import EveContact, EveWar, SyncedCharacter, SyncManager
 
 T = TypeVar("T")
+_BASE_URL = "https://esi.evetech.net/"
+
+
+def make_esi_url(path: str) -> str:
+    if path.startswith("/"):
+        raise ValueError("path can not start with a slash")
+    if path.endswith("/"):
+        raise ValueError("path can not end with a slash")
+
+    url = urllib.parse.urljoin(_BASE_URL, path)
+    return url
 
 
 class BaseMetaFactory(Generic[T], factory.base.FactoryMetaClass):
@@ -27,61 +42,14 @@ class BaseMetaFactory(Generic[T], factory.base.FactoryMetaClass):
         return super().__call__(*args, **kwargs)
 
 
-class EveEntityFactory(
-    factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[EveEntity]
-):
-    class Meta:
-        model = EveEntity
-        django_get_or_create = ("id", "name")
-
-    category = EveEntity.CATEGORY_CHARACTER
-
-    @factory.lazy_attribute
-    def id(self):
-        if self.category == EveEntity.CATEGORY_CHARACTER:
-            obj = EveCharacterFactory()
-            return obj.character_id
-        if self.category == EveEntity.CATEGORY_CORPORATION:
-            obj = EveCorporationInfoFactory()
-            return obj.corporation_id
-        if self.category == EveEntity.CATEGORY_ALLIANCE:
-            obj = EveAllianceInfoFactory()
-            return obj.alliance_id
-        raise NotImplementedError(f"Unknown category: {self.category}")
-
-
-class EveEntityCharacterFactory(EveEntityFactory):
-    name = factory.Faker("name")
-    category = EveEntity.CATEGORY_CHARACTER
-
-
-class EveEntityCorporationFactory(EveEntityFactory):
-    name = factory.Faker("company")
-    category = EveEntity.CATEGORY_CORPORATION
-
-
-class EveEntityAllianceFactory(EveEntityFactory):
-    name = factory.Faker("company")
-    category = EveEntity.CATEGORY_ALLIANCE
-
-
-class EveEntityFactionFactory(
-    factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[EveEntity]
-):
-    class Meta:
-        model = EveEntity
-        django_get_or_create = ("id", "name")
-
-    id = factory.Sequence(lambda n: 500001 + n)
-    name = factory.Faker("color_name")
-    category = EveEntity.CATEGORY_FACTION
-
-
 class EveWarFactory(
     factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[EveWar]
 ):
     class Meta:
         model = EveWar
+
+    class Params:
+        is_finished = factory.Trait(finished=now())
 
     id = factory.Sequence(lambda n: 1 + n)
     aggressor = factory.SubFactory(EveEntityAllianceFactory)
@@ -108,12 +76,22 @@ class EveWarFactory(
                 self.allies.add(ally)  # type: ignore
 
 
+class EveWarEmptyFactory(EveWarFactory):
+    aggressor = None
+    declared = None
+    defender = None
+    is_mutual = None
+    is_open_for_allies = None
+    started = None
+    retracted = None
+
+
 class UserMainManagerFactory(UserMainFactory):
     main_character__scopes = ["esi-alliances.read_contacts.v1"]
     permissions__ = ["standingssync.add_syncmanager"]
 
 
-class UserMainSyncerFactory(UserMainFactory):
+class UserMainDefaultFactory(UserMainFactory):
     main_character__scopes = [
         "esi-characters.read_contacts.v1",
         "esi-characters.write_contacts.v1",
@@ -158,13 +136,26 @@ class SyncedCharacterFactory(
         model = SyncedCharacter
 
     class Params:
-        user = factory.SubFactory(UserMainSyncerFactory)
+        user = None
 
     manager = factory.SubFactory(SyncManagerFactory)
 
     @factory.lazy_attribute
     def character_ownership(self):
+        if not self.user:
+            character = EveCharacterFactory(corporation__alliance=self.manager.alliance)
+            user = UserMainDefaultFactory(main_character__character=character)
+            return user.profile.main_character.character_ownership  # type: ignore
+
         return self.user.profile.main_character.character_ownership  # type: ignore
+
+    @factory.post_generation
+    def create_alt(self, create, extracted, **kwargs):
+        if not create or extracted is not True:
+            return
+
+        alt = EveCharacterFactory()
+        add_character_to_user(self.character_ownership.user, alt)
 
 
 class EveContactFactory(
@@ -175,13 +166,8 @@ class EveContactFactory(
 
     manager = factory.SubFactory(SyncManagerFactory)
     eve_entity = factory.SubFactory(EveEntityCharacterFactory)
-    standing = 5
+    standing = factory.LazyAttribute(lambda o: -10 if o.is_war_target else 5)
     is_war_target = False
-
-
-class EveContactWarTargetFactory(EveContactFactory):
-    standing = -10
-    is_war_target = True
 
 
 class EsiContactDictFactory(factory.base.DictFactory, metaclass=BaseMetaFactory[dict]):
@@ -200,7 +186,40 @@ class EsiContactFactory(factory.base.Factory, metaclass=BaseMetaFactory[EsiConta
         model = EsiContact
 
     contact_id = factory.fuzzy.FuzzyInteger(90_000, 99_999)
-    contact_type = factory.fuzzy.FuzzyChoice(list(EsiContact.ContactType))
+    contact_type = factory.fuzzy.FuzzyChoice(list(EsiContact.Category))
+    standing = factory.fuzzy.FuzzyFloat(-10.0, 10.0)
+
+
+class EsiContactAllianceFactory(
+    factory.base.Factory, metaclass=BaseMetaFactory[EsiContact]
+):
+    class Meta:
+        model = EsiContact
+
+    contact_id = factory.Sequence(lambda n: 99_909_001 + n)
+    contact_type = EsiContact.Category.ALLIANCE
+    standing = factory.fuzzy.FuzzyFloat(-10.0, 10.0)
+
+
+class EsiContactCharacterFactory(
+    factory.base.Factory, metaclass=BaseMetaFactory[EsiContact]
+):
+    class Meta:
+        model = EsiContact
+
+    contact_id = factory.Sequence(lambda n: 90_909_001 + n)
+    contact_type = EsiContact.Category.CHARACTER
+    standing = factory.fuzzy.FuzzyFloat(-10.0, 10.0)
+
+
+class EsiContactCorporationFactory(
+    factory.base.Factory, metaclass=BaseMetaFactory[EsiContact]
+):
+    class Meta:
+        model = EsiContact
+
+    contact_id = factory.Sequence(lambda n: 97_909_001 + n)
+    contact_type = EsiContact.Category.CORPORATION
     standing = factory.fuzzy.FuzzyFloat(-10.0, 10.0)
 
 

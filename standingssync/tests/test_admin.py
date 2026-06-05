@@ -2,7 +2,7 @@ from django.test import TestCase
 
 from app_utils.testdata_factories import UserFactory
 
-from .factories import SyncedCharacterFactory
+from standingssync.tests.factories import SyncedCharacterFactory
 
 
 class TestSyncedCharacterChangeList(TestCase):

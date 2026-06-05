@@ -6,8 +6,8 @@ from django.contrib import admin
 from django.db.models import Prefetch
 from eveuniverse.models import EveEntity
 
-from . import tasks
-from .models import EveContact, EveWar, SyncedCharacter, SyncManager
+from standingssync import tasks
+from standingssync.models import EveContact, EveWar, SyncedCharacter, SyncManager
 
 
 @admin.register(EveContact)
@@ -49,7 +49,7 @@ class EveContactAdmin(admin.ModelAdmin):
 
 
 class EveWarActiveWarsListFilter(admin.SimpleListFilter):
-    title = "active_wars"
+    title = "active wars"
     parameter_name = "active_wars"
 
     def lookups(self, request, model_admin):
@@ -63,6 +63,24 @@ class EveWarActiveWarsListFilter(admin.SimpleListFilter):
             return queryset.filter(is_active=True)
         if self.value() == "no":
             return queryset.filter(is_active=False)
+        return queryset
+
+
+class EveWarEmptyWarsListFilter(admin.SimpleListFilter):
+    title = "empty wars"
+    parameter_name = "empty_wars"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("yes", "yes"),
+            ("no", "no"),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == "yes":
+            return queryset.empty()
+        if self.value() == "no":
+            return queryset.non_empty()
         return queryset
 
 
@@ -97,7 +115,12 @@ class EveWarAdmin(admin.ModelAdmin):
         "finished",
     )
     ordering = ("-id",)
-    list_filter = ("declared", EveWarActiveWarsListFilter, EveWarStateListFilter)
+    list_filter = (
+        "declared",
+        EveWarActiveWarsListFilter,
+        EveWarStateListFilter,
+        EveWarEmptyWarsListFilter,
+    )
     search_fields = ("aggressor__name", "defender__name", "allies__name")
     inlines = (AlliesInline,)
 
@@ -108,7 +131,7 @@ class EveWarAdmin(admin.ModelAdmin):
         return False
 
     def get_queryset(self, request):
-        qs = super().get_queryset(request).annotate_state().annotate_is_active()  # type: ignore
+        qs = super().get_queryset(request).annotate_state().annotate_is_active()
         return qs.prefetch_related(
             Prefetch("allies", queryset=EveEntity.objects.select_related())
         ).annotate_state()
@@ -119,6 +142,12 @@ class EveWarAdmin(admin.ModelAdmin):
     # def _allies(self, obj):
     #     allies = sorted([str(ally) for ally in obj.allies.all()])
     #     return format_html("<br>".join(allies)) if allies else "-"
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        p = round(EveWar.objects.updated_percentage() * 100, 1)
+        extra_context["completion_p"] = p
+        return super().changelist_view(request, extra_context=extra_context)
 
 
 @admin.register(SyncedCharacter)

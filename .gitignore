@@ -12,3 +12,5 @@ coverage.xml
 .tox/
 htmlcov/
 temp/
+.env
+.temp/

@@ -2,7 +2,7 @@
 
 from django.urls import path
 
-from . import views
+from standingssync import views
 
 app_name = "standingssync"
 

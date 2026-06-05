@@ -1,23 +1,25 @@
 """Tasks for standingssync."""
 
-from celery import shared_task
+import time
 
+from celery import Task, shared_task
+
+from django.db.models import QuerySet
+from esi.decorators import rate_limit_retry_task
 from eveuniverse.core.esitools import is_esi_online
-from eveuniverse.tasks import update_unresolved_eve_entities
 
 from allianceauth.services.hooks import get_extension_logger
 from allianceauth.services.tasks import QueueOnce
-from app_utils.esi import retry_task_on_esi_error_and_offline
-from app_utils.logging import LoggerAddTag
 
-from . import __title__
-from .app_settings import STANDINGSSYNC_ADD_WAR_TARGETS
-from .models import EveWar, SyncedCharacter, SyncManager
+from standingssync.app_settings import STANDINGSSYNC_ADD_WAR_TARGETS
+from standingssync.models import EveWar, SyncedCharacter, SyncManager
 
-logger = LoggerAddTag(get_extension_logger(__name__), __title__)
+logger = get_extension_logger(__name__)
 
 
 DEFAULT_TASK_PRIORITY = 6
+ONCE_TIMEOUT = 1000  # once timeout determined by max rate limit reset + contingency
+SYNC_WAR_DELAY = 0.6  # delay in seconds for fetching each war with contigency.
 
 
 @shared_task(base=QueueOnce)
@@ -36,8 +38,9 @@ def run_regular_sync():
         )
 
 
-@shared_task(base=QueueOnce)
-def run_manager_sync(manager_pk: int, force_update: bool = False):
+@shared_task(base=QueueOnce, bind=True)
+@rate_limit_retry_task
+def run_manager_sync(_self, manager_pk: int, force_update: bool = False):
     """updates contacts for given manager and related characters
 
     Args:
@@ -53,8 +56,9 @@ def run_manager_sync(manager_pk: int, force_update: bool = False):
         )
 
 
-@shared_task(base=QueueOnce)
-def run_character_sync(sync_char_pk: int):
+@shared_task(base=QueueOnce, bind=True)
+@rate_limit_retry_task
+def run_character_sync(_self, sync_char_pk: int):
     """updates in-game contacts for given character
 
     Args:
@@ -71,23 +75,37 @@ def character_delete_all_contacts(sync_char_pk: int):
     synced_character.delete_all_contacts()
 
 
-@shared_task(base=QueueOnce)
-def sync_all_wars():
+@shared_task(base=QueueOnce, bind=True, once={"timeout": ONCE_TIMEOUT})
+@rate_limit_retry_task
+def sync_all_wars(_self):
     """Sync all wars from ESI."""
-    fetch_active_war_ids_esi = EveWar.objects.fetch_active_war_ids_esi()
-    if fetch_active_war_ids_esi:
-        logger.info(
-            "Updating details for %d active wars from ESI.",
-            len(fetch_active_war_ids_esi),
-        )
-        for war_id in fetch_active_war_ids_esi:
-            run_war_sync.apply_async(args=[war_id], priority=DEFAULT_TASK_PRIORITY)
-
-    update_unresolved_eve_entities.apply_async(priority=DEFAULT_TASK_PRIORITY)
+    EveWar.objects.sync_known_wars()
+    if EveWar.objects.needs_update().exists():
+        sync_stale_war.apply_async(priority=DEFAULT_TASK_PRIORITY)
 
 
-@shared_task(bind=True, base=QueueOnce)
-def run_war_sync(self, war_id: int):
-    """Sync given war from ESI."""
-    with retry_task_on_esi_error_and_offline(self):
-        EveWar.objects.update_or_create_from_esi(war_id)
+@shared_task(
+    base=QueueOnce, bind=True, max_retries=None, once={"timeout": ONCE_TIMEOUT}
+)
+@rate_limit_retry_task
+def sync_stale_war(self: Task):
+    """Update the newest stale war from ESI."""
+    wars_to_update: QuerySet[EveWar] = EveWar.objects.needs_update()
+    war: EveWar = wars_to_update.order_by("-id").first()
+    if not war:
+        return
+
+    logger.info(
+        "%d stale wars need to be updated. Starting to update war ID %d",
+        wars_to_update.count(),
+        war.id,
+    )
+    war.update_from_esi()
+    logger.info("Updated war with ID %d", war.id)
+
+    delay = SYNC_WAR_DELAY
+    logger.debug("Waiting %f seconds for next rate limit slot", delay)
+    time.sleep(delay)
+
+    if EveWar.objects.needs_update().exists():
+        self.retry(countdown=0.01)

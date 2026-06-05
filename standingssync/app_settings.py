@@ -5,6 +5,9 @@ from app_utils.app_settings import clean_setting
 STANDINGSSYNC_ADD_WAR_TARGETS = clean_setting("STANDINGSSYNC_ADD_WAR_TARGETS", False)
 """When enabled will automatically add or set war targets
  with standing = -10 to synced characters.
+ Note that for this to work a character also needs to have created
+ a custom label with the correct name.
+ See also `STANDINGSSYNC_WAR_TARGETS_LABEL_NAME`.
 """
 
 STANDINGSSYNC_CHAR_MIN_STANDING = clean_setting(
@@ -31,35 +34,36 @@ is reported as down. This value should be aligned with the frequency of the sync
 STANDINGSSYNC_UNFINISHED_WARS_EXCEPTION_IDS = clean_setting(
     "STANDINGSSYNC_UNFINISHED_WARS_EXCEPTION_IDS",
     [
-        693125,
-        716071,
-        716072,
-        716073,
-        716864,
-        717695,
-        718307,
-        718387,
-        718575,
-        718576,
-        718619,
-        718637,
-        718638,
-        718639,
-        718640,
-        718941,
-        719186,
-        719187,
-        719188,
-        719189,
-        719226,
-        719331,
-        719336,
-        719337,
-        719423,
-        719745,
-        719751,
-        719854,
-        719890,
+        734022,
+        748895,
+        756575,
+        757763,
+        758152,
+        758264,
+        758295,
+        758365,
+        758370,
+        758447,
+        758739,
+        758761,
+        758770,
+        758945,
+        758969,
+        758970,
+        758971,
+        759161,
+        759533,
+        759534,
+        759535,
+        759536,
+        759581,
+        759582,
+        759584,
+        759585,
+        759586,
+        759587,
+        759592,
+        759593,
     ],
 )
 """IDs of unfinished wars, with IDs below the above minimum threshold.
@@ -70,7 +74,7 @@ despite there ID being below the minimum ID.
 """
 
 STANDINGSSYNC_UNFINISHED_WARS_MINIMUM_ID = clean_setting(
-    "STANDINGSSYNC_UNFINISHED_WARS_MINIMUM_ID", 719979
+    "STANDINGSSYNC_UNFINISHED_WARS_MINIMUM_ID", 759665
 )
 """Smallest war ID to fetch from ESI.
 

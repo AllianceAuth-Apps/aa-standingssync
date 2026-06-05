@@ -141,7 +141,7 @@ Here is a list of available settings for this app. They can be configured by add
 
 Name|Description|Default
 --|--|--
-`STANDINGSSYNC_ADD_WAR_TARGETS`|When enabled will automatically add or set war targets  with standing = -10 to synced characters.|`False`
+`STANDINGSSYNC_ADD_WAR_TARGETS`|When enabled will automatically add or set war targets  with standing = -10 to synced characters.  Note that for this to work a character also needs to have created  a custom label with the correct name.  See also `STANDINGSSYNC_WAR_TARGETS_LABEL_NAME`.|`False`
 `STANDINGSSYNC_CHAR_MIN_STANDING`|Minimum standing a character needs to have in order to get alliance contacts. Any char with a standing smaller than this value will be rejected. Set to `0.0` if you want to allow neutral alts to sync.|`0.1`
 `STANDINGSSYNC_REPLACE_CONTACTS`|When enabled will replace contacts of synced characters with alliance contacts.|`True`
 `STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED`|Wether to store contacts received from ESI to disk. This is for debugging.|`False`

@@ -1,8 +1,7 @@
 from django.template import Context, Template
 from django.test import TestCase
 from eveuniverse.models import EveEntity
-
-from .factories import (
+from eveuniverse.tests.testdata.factories_2 import (
     EveEntityAllianceFactory,
     EveEntityCharacterFactory,
     EveEntityCorporationFactory,
