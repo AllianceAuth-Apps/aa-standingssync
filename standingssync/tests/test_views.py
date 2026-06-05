@@ -5,6 +5,7 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from esi.models import Token
+from eveuniverse.tests.testdata.factories_2 import EveEntityCharacterFactory
 
 from allianceauth.eveonline.models import EveCharacter
 from app_utils.testdata_factories import (
@@ -16,16 +17,13 @@ from app_utils.testing import NoSocketsTestCase, add_character_to_user
 
 from standingssync import views
 from standingssync.models import SyncedCharacter, SyncManager
-
-from .factories import (
+from standingssync.tests.factories import (
     EveContactFactory,
-    EveEntityCharacterFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
+    UserMainDefaultFactory,
     UserMainManagerFactory,
-    UserMainSyncerFactory,
 )
-from .utils import load_eve_entities
 
 MODULE_PATH = "standingssync.views"
 
@@ -39,7 +37,7 @@ class TestMainScreen(TestCase):
 
         cls.user_manager = UserMainManagerFactory()
         cls.sync_manager = SyncManagerFactory(user=cls.user_manager)
-        cls.user_normal = UserMainSyncerFactory(
+        cls.user_normal = UserMainDefaultFactory(
             main_character__alliance_id=cls.sync_manager.alliance.alliance_id
         )
         cls.sync_char = SyncedCharacterFactory(
@@ -88,8 +86,6 @@ class TestAddSyncChar(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        load_eve_entities()
-
         cls.factory = RequestFactory()
 
         alliance = EveAllianceInfoFactory()
@@ -98,7 +94,7 @@ class TestAddSyncChar(NoSocketsTestCase):
         cls.sync_manager = SyncManagerFactory(user=cls.user_manager)
 
         cls.character_normal = EveCharacterFactory(corporation__alliance=alliance)
-        cls.user_normal = UserMainSyncerFactory(
+        cls.user_normal = UserMainDefaultFactory(
             main_character__character=cls.character_normal
         )
 
@@ -141,7 +137,8 @@ class TestAddSyncChar(NoSocketsTestCase):
         self, mock_messages, mock_run_character_sync
     ):
         # when
-        response = self.make_request(self.user_normal, self.character_normal)
+        with patch(MODULE_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.1):
+            response = self.make_request(self.user_normal, self.character_normal)
 
         # then
         self.assertEqual(response.status_code, 302)
@@ -156,7 +153,8 @@ class TestAddSyncChar(NoSocketsTestCase):
         add_character_to_user(self.user_normal, alt_character)
 
         # when
-        response = self.make_request(self.user_normal, alt_character)
+        with patch(MODULE_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.0):
+            response = self.make_request(self.user_normal, alt_character)
 
         # then
         self.assertEqual(response.status_code, 302)
@@ -177,7 +175,8 @@ class TestAddSyncChar(NoSocketsTestCase):
         add_character_to_user(self.user_normal, alt_character)
 
         # when
-        response = self.make_request(self.user_normal, alt_character)
+        with patch(MODULE_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.1):
+            response = self.make_request(self.user_normal, alt_character)
 
         # then
         self.assertEqual(response.status_code, 302)
@@ -198,7 +197,6 @@ class TestAddAllianceManager(NoSocketsTestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.factory = RequestFactory()
-        load_eve_entities()
 
     def make_request(self, user: User):
         character: EveCharacter = user.profile.main_character

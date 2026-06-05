@@ -15,22 +15,20 @@ from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter
 from allianceauth.notifications import notify
 from allianceauth.services.hooks import get_extension_logger
-from app_utils.logging import LoggerAddTag
 
-from . import __title__
-from .app_settings import (
+from standingssync.app_settings import (
     STANDINGSSYNC_ADD_WAR_TARGETS,
     STANDINGSSYNC_CHAR_MIN_STANDING,
     STANDINGSSYNC_REPLACE_CONTACTS,
     STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED,
     STANDINGSSYNC_SYNC_TIMEOUT,
 )
-from .core import esi_api
-from .core.esi_contacts import EsiContact, EsiContactsContainer
-from .helpers import store_json
-from .managers import EveContactManager, EveWarManager, SyncManagerManager
+from standingssync.core import esi_api
+from standingssync.core.esi_contacts import EsiContact, EsiContactsContainer
+from standingssync.helpers import store_json
+from standingssync.managers import EveContactManager, EveWarManager, SyncManagerManager
 
-logger = LoggerAddTag(get_extension_logger(__name__), __title__)
+logger = get_extension_logger(__name__)
 
 
 class _SyncBaseModel(models.Model):
@@ -273,7 +271,7 @@ class SyncedCharacter(_SyncBaseModel):
         - None when no update was needed
         - True when update was done successfully
         """
-        if not self._has_owner_permissions():
+        if not self._has_sync_permissions():
             return False
 
         if not self._has_standing_with_alliance():
@@ -350,7 +348,7 @@ class SyncedCharacter(_SyncBaseModel):
             self.has_war_targets_label = has_wt_label
             self.save()
 
-    def _has_owner_permissions(self) -> bool:
+    def _has_sync_permissions(self) -> bool:
         if not self.character_ownership.user.has_perm(
             "standingssync.add_syncedcharacter"
         ):
@@ -493,6 +491,11 @@ class EveContact(models.Model):
     def __str__(self):
         return f"{self.eve_entity}"
 
+    @property
+    def contact_id(self) -> int:
+        """Return contact ID."""
+        return self.eve_entity_id
+
 
 class EveWar(models.Model):
     """An EveOnline war"""
@@ -500,11 +503,12 @@ class EveWar(models.Model):
     class State(models.TextChoices):
         """A war state."""
 
-        PENDING = "pending"  # declared, but not started yet
-        ONGOING = "ongoing"  # active and without finish date
         CONCLUDING = "concluding"  # active and about to finish normally
-        RETRACTED = "retracted"  # activate and about to finish after retraction
         FINISHED = "finished"  # finished war
+        ONGOING = "ongoing"  # active and without finish date
+        PENDING = "pending"  # declared, but not started yet
+        RETRACTED = "retracted"  # activate and about to finish after retraction
+        UNKNOWN = "unknown"  # state is unknown
 
         @classmethod
         def active_states(cls) -> Set["EveWar.State"]:
@@ -512,17 +516,65 @@ class EveWar(models.Model):
             return {cls.ONGOING, cls.CONCLUDING, cls.RETRACTED}
 
     id = models.PositiveIntegerField(primary_key=True)
-    aggressor = models.ForeignKey(EveEntity, on_delete=models.CASCADE, related_name="+")
+    aggressor = models.ForeignKey(
+        EveEntity, null=True, default=None, on_delete=models.SET_NULL, related_name="+"
+    )
     allies = models.ManyToManyField(EveEntity, related_name="+")
-    declared = models.DateTimeField()
-    defender = models.ForeignKey(EveEntity, on_delete=models.CASCADE, related_name="+")
+    declared = models.DateTimeField(null=True, default=None)
+    defender = models.ForeignKey(
+        EveEntity, null=True, default=None, on_delete=models.SET_NULL, related_name="+"
+    )
     finished = models.DateTimeField(null=True, default=None, db_index=True)
-    is_mutual = models.BooleanField()
-    is_open_for_allies = models.BooleanField()
+    is_mutual = models.BooleanField(null=True, default=None)
+    is_open_for_allies = models.BooleanField(null=True, default=None)
     retracted = models.DateTimeField(null=True, default=None)
     started = models.DateTimeField(null=True, default=None, db_index=True)
+    last_modified = models.DateTimeField(auto_now=True)
 
     objects = EveWarManager()
 
     def __str__(self) -> str:
         return f"{self.aggressor} vs. {self.defender}"
+
+    def update_from_esi(self):
+        """Update this war from ESI."""
+
+        war_info = esi_api.fetch_war(war_id=self.id)
+        entity_ids = set()
+        aggressor = _get_or_create_eve_entity_from_participant(war_info["aggressor"])
+        entity_ids.add(aggressor.id)
+        defender = _get_or_create_eve_entity_from_participant(war_info["defender"])
+        entity_ids.add(defender.id)
+        self.aggressor = aggressor
+        self.declared = war_info["declared"]
+        self.defender = defender
+        self.is_mutual = war_info["mutual"]
+        self.is_open_for_allies = war_info["open_for_allies"]
+        self.retracted = war_info.get("retracted")
+        self.started = war_info.get("started")
+        self.finished = war_info.get("finished")
+        self.save()
+
+        self.allies.clear()
+        if war_info.get("allies"):
+            for ally_info in war_info.get("allies", []):
+                try:
+                    ally = _get_or_create_eve_entity_from_participant(ally_info)
+                except ValueError:
+                    logger.warning("%s: Could not identify ally: %s", id, ally_info)
+                    continue
+
+                self.allies.add(ally)
+                entity_ids.add(ally.id)
+
+        EveEntity.objects.bulk_resolve_ids(entity_ids)
+
+
+def _get_or_create_eve_entity_from_participant(participant: dict) -> EveEntity:
+    """Get or create an EveEntity object from a war participant dict."""
+    entity_id = participant.get("alliance_id") or participant.get("corporation_id")
+    if not entity_id:
+        raise ValueError(f"Invalid participant: {participant}")
+
+    obj, _ = EveEntity.objects.get_or_create(id=entity_id)
+    return obj

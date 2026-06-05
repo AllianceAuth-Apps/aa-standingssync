@@ -3,5 +3,5 @@
 # pylint: disable = invalid-name
 default_app_config = "standingssync.apps.SyncAltContactsConfig"
 
-__version__ = "2.0.0"
+__version__ = "3.0.0b1"
 __title__ = "Standings Sync"

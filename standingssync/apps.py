@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
-from . import __version__
+from standingssync import __version__
 
 
 class SyncAltContactsConfig(AppConfig):

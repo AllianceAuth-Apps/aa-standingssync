@@ -9,3 +9,8 @@
         </a>
     </li>
 {% endblock %}
+
+{% block result_list %}
+    {{ block.super }}
+    <p>{{ completion_p|default_if_none:"??" }} % loaded</p>
+{% endblock %}
