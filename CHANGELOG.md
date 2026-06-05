@@ -7,9 +7,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
-## [3.0.0] - TBD
+## [3.0.0b1] - 2026-05-04
 
 This release adds support for Alliance Auth V5 and contains breaking changes.
+
+### Update notes
+
+If you updating from a previous version please also update the periodic tasks configuration in your local settings.
+This does not change the frequency of updates, but reduces potential load peaks on FC's servers, which can be caused by many installations making the same requests to FC's servers at the same time.
+The new configuration is:
+
+```python
+CELERYBEAT_SCHEDULE['standingssync.run_regular_sync'] = {
+    'task': 'standingssync.tasks.run_regular_sync',
+    'schedule': 7200
+}
+```
 
 ### Changed
 
@@ -17,8 +30,8 @@ This release adds support for Alliance Auth V5 and contains breaking changes.
 - Added support for AA 5
 - Removed logger tag
 - Migrated ESI client to OpenAPI
+- Reworked logic for fetching wars to accommodate rate limit constraints
 - Modernized test suite
-- Reworked logic for fetching wars to accomdate rate limit contraints
 
 ## [2.0.0] - 2026-03-26
 
