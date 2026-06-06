@@ -19,12 +19,17 @@ from allianceauth.services.hooks import get_extension_logger
 from standingssync.app_settings import (
     STANDINGSSYNC_ADD_WAR_TARGETS,
     STANDINGSSYNC_CHAR_MIN_STANDING,
+    STANDINGSSYNC_COMPRESS_CONTACTS,
     STANDINGSSYNC_REPLACE_CONTACTS,
     STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED,
     STANDINGSSYNC_SYNC_TIMEOUT,
 )
 from standingssync.core import esi_api
-from standingssync.core.esi_contacts import EsiContact, EsiContactsContainer
+from standingssync.core.esi_contacts import (
+    EsiContact,
+    EsiContactsContainer,
+    compress_esi_contacts,
+)
 from standingssync.helpers import store_json
 from standingssync.managers import EveContactManager, EveWarManager, SyncManagerManager
 
@@ -144,7 +149,18 @@ class SyncManager(_SyncBaseModel):
             raise RuntimeError(f"{self}: Can not sync. No valid token found.")
 
         esi_contacts = esi_api.fetch_alliance_contacts(self.alliance.alliance_id, token)
-        contacts = EsiContactsContainer.from_esi_contacts(esi_contacts)
+        if STANDINGSSYNC_COMPRESS_CONTACTS:
+            esi_contacts_2 = compress_esi_contacts(esi_contacts)
+            logger.info(
+                "%s: Compressed contacts from %d to %d",
+                self,
+                len(esi_contacts),
+                len(esi_contacts_2),
+            )
+        else:
+            esi_contacts_2 = esi_contacts
+
+        contacts = EsiContactsContainer.from_esi_contacts(esi_contacts_2)
         war_target_ids = self._add_war_targets(contacts)
         new_version_hash = contacts.version_hash()
 

@@ -9,7 +9,10 @@ from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
 
 from eveuniverse.models import EveEntity
 
+from app_utils.helpers import chunks
+
 from standingssync.app_settings import STANDINGSSYNC_WAR_TARGETS_LABEL_NAME
+from standingssync.providers import esi
 
 
 @dataclass(frozen=True)
@@ -138,6 +141,133 @@ class EsiContact:
             standing=eve_contact.standing,
             label_ids=label_ids if label_ids else frozenset(),
         )
+
+
+@dataclass
+class _character:
+    id: int
+    corporation_id: int
+    standing: float
+    alliance_id: Optional[int] = None
+
+
+@dataclass
+class _corporation:
+    id: int
+    standing: float
+    alliance_id: Optional[int] = None
+    faction_id: Optional[int] = None
+
+
+@dataclass
+class _alliance:
+    id: int
+    standing: float
+
+
+# TODO: Consider converting this apply to an ESI Contact container for war targets
+
+
+def compress_esi_contacts(contacts: Set[EsiContact]) -> Set[EsiContact]:
+    """Compress contacts.
+
+    Compressing will remove contacts that have no impact on their effective standing.
+    It will remove:
+    - faction contacts
+    - charaters and when their alliances exist as contact and has same standing
+    - characters when their corporations exist as contact and has same standing
+    - corporations when their alliances exist as contact and has same standing
+    - neutral characters when their corporation and alliance do not exist as contact
+    - neutral corporations when their corporation and alliance do not exist as contact
+    - neutral alliances
+    """
+    # collect contacts
+    characters = {
+        x.contact_id: _character(id=x.contact_id, corporation_id=0, standing=x.standing)
+        for x in contacts
+        if x.contact_type == EsiContact.Category.CHARACTER
+    }
+    corporations = {
+        x.contact_id: _corporation(id=x.contact_id, standing=x.standing)
+        for x in contacts
+        if x.contact_type == EsiContact.Category.CORPORATION
+    }
+    alliances = {
+        x.contact_id: _alliance(id=x.contact_id, standing=x.standing)
+        for x in contacts
+        if x.contact_type == EsiContact.Category.ALLIANCE
+    }
+
+    # add character affiliations
+    for chunk in chunks(list(characters.keys()), 1000):
+        affiliations = esi.client.Character.PostCharactersAffiliation(
+            body=chunk
+        ).result(use_etag=False)
+        for x in affiliations:
+            characters[x.character_id].corporation_id = x.corporation_id
+            characters[x.character_id].alliance_id = x.alliance_id
+
+    # add corporation affiliations
+    for corporation_id in corporations.keys():
+        info = esi.client.Corporation.GetCorporationsCorporationId(
+            corporation_id=corporation_id
+        ).result(use_etag=False)
+        corporations[corporation_id].alliance_id = info.alliance_id
+
+    # remove redundant alliances
+    for alliance_id in list(alliances.keys()):
+        obj = alliances[alliance_id]
+        if obj.standing == 0:
+            del alliances[alliance_id]
+
+    # remove redundant corporations
+    for corporation_id in list(corporations.keys()):
+        obj = corporations[corporation_id]
+        alliance = None
+        if obj.alliance_id:
+            try:
+                alliance = alliances[obj.alliance_id]
+            except KeyError:
+                pass
+
+        if alliance and alliance.standing == obj.standing:
+            del corporations[corporation_id]
+            continue
+
+        if obj.standing == 0 and not alliance:
+            del corporations[corporation_id]
+            continue
+
+    # remove redundant characters
+    for character_id in list(characters.keys()):
+        obj = characters[character_id]
+        try:
+            corporation = corporations[obj.corporation_id]
+        except KeyError:
+            corporation = None
+
+        if corporation and corporation.standing == obj.standing:
+            del characters[character_id]
+
+        alliance = None
+        if obj.alliance_id:
+            try:
+                alliance = alliances[obj.alliance_id]
+            except KeyError:
+                pass
+
+        if alliance and alliance.standing == obj.standing:
+            del characters[character_id]
+            continue
+
+        if obj.standing == 0 and not corporation and not alliance:
+            del characters[character_id]
+            continue
+
+    # create updated contact set
+    remaining_ids = characters.keys() | corporations.keys() | alliances.keys()
+    contacts_2 = {x for x in contacts if x.contact_id in remaining_ids}
+    return contacts_2
 
 
 # pylint: disable = too-many-public-methods
