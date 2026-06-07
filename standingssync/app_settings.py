@@ -27,6 +27,13 @@ This helps to reduce the overall number of contacts that are synced to character
 This is an experimental feature.
 """
 
+STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS = clean_setting(
+    "STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False
+)
+"""When enabled will exclude character contacts from syncing.
+This can help to reduce the overall number of contacts below the 1024 contact limit.
+"""
+
 STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED = clean_setting(
     "STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED", False
 )

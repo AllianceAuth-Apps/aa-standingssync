@@ -11,7 +11,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - Removes contacts that are shadowing war target contact
 - Can remove contacts from downloaded alliance contacts which are redundant in terms of effective standing to reduce number of contacts that have to be synced to characters.
-This is an experimental feature can be turned on with STANDINGSSYNC_COMPRESS_CONTACTS
+This is an experimental feature can be enabled with the setting `STANDINGSSYNC_COMPRESS_CONTACTS`
+- Will abort sync attempt with error and show error message when the number of contacts to sync exceedes the maximum capacity for character contacts (1024)
+- Ability to remove character contacts from sync to reduce total number of contacts witt the new setting `STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS`
 
 ## [3.0.0b1] - 2026-06-05
 

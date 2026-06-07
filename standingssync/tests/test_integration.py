@@ -86,6 +86,7 @@ class TestTasksE2E(TestCaseWithClearCache):
             patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True),
             patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),
             patch(MODELS_PATH + ".STANDINGSSYNC_COMPRESS_CONTACTS", False),
+            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
         ):
             tasks.run_manager_sync.delay(manager_pk=sm.pk)
 
@@ -174,6 +175,7 @@ class TestTasksE2E(TestCaseWithClearCache):
             patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True),
             patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
             patch(MODELS_PATH + ".STANDINGSSYNC_COMPRESS_CONTACTS", False),
+            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
             patch(
                 ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME",
                 wt_label_name,
@@ -266,6 +268,7 @@ class TestTasksE2E(TestCaseWithClearCache):
             patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True),
             patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
             patch(MODELS_PATH + ".STANDINGSSYNC_COMPRESS_CONTACTS", True),
+            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
             patch(
                 ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME",
                 wt_label_name,

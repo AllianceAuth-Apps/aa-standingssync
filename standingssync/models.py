@@ -20,6 +20,7 @@ from standingssync.app_settings import (
     STANDINGSSYNC_ADD_WAR_TARGETS,
     STANDINGSSYNC_CHAR_MIN_STANDING,
     STANDINGSSYNC_COMPRESS_CONTACTS,
+    STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS,
     STANDINGSSYNC_REPLACE_CONTACTS,
     STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED,
     STANDINGSSYNC_SYNC_TIMEOUT,
@@ -145,6 +146,13 @@ class SyncManager(_SyncBaseModel):
             raise RuntimeError(f"{self}: Can not sync. No valid token found.")
 
         esi_contacts = esi_api.fetch_alliance_contacts(self.alliance.alliance_id, token)
+        if STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS:
+            esi_contacts = {
+                x
+                for x in esi_contacts
+                if x.contact_type != EsiContact.Category.CHARACTER
+            }
+
         contacts = EsiContactsContainer.from_esi_contacts(esi_contacts)
         war_target_ids = self._add_war_targets(contacts)
 

@@ -28,6 +28,7 @@ from standingssync.models import (
 )
 from standingssync.tests.factories import (
     EsiContactCharacterFactory,
+    EsiContactCorporationFactory,
     EsiContactLabelFactory,
     EveContactFactory,
     EveWarEmptyFactory,
@@ -122,7 +123,10 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         sm = SyncManagerFactory(user=self.user)
 
         # when
-        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False):
+        with (
+            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),
+            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
+        ):
             sm.run_sync()
 
         # then
@@ -131,6 +135,34 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         self.assertEqual(contact.eve_entity.id, contact_esi.contact_id)
         self.assertEqual(contact.standing, contact_esi.standing)
         self.assertFalse(contact.is_war_target)
+
+    def test_should_add_new_contacts_from_scratch_no_wt_and_ignore_characters(
+        self, mock_esi_api
+    ):
+        # given
+        esi_contact_1 = EsiContactCharacterFactory()
+        esi_contact_2 = EsiContactCorporationFactory()
+        mock_esi_api.fetch_alliance_contacts.return_value = [
+            esi_contact_1,
+            esi_contact_2,
+        ]
+        EveEntityCharacterFactory(id=esi_contact_1.contact_id)
+        EveEntityCorporationFactory(id=esi_contact_2.contact_id)
+        sm = SyncManagerFactory(user=self.user)
+
+        # when
+        with (
+            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),
+            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", True),
+        ):
+            sm.run_sync()
+
+        # then
+        self.assertEqual(sm.contacts.count(), 1)
+        contact_2: EveContact = sm.contacts.first()
+        self.assertEqual(contact_2.eve_entity.id, contact_2.contact_id)
+        self.assertEqual(contact_2.standing, contact_2.standing)
+        self.assertFalse(contact_2.is_war_target)
 
     def test_should_update_existing_contacts_no_wt(self, mock_esi_api):
         # given
@@ -157,7 +189,10 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         sm = SyncManagerFactory(user=self.user)
 
         # when
-        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False):
+        with (
+            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),
+            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
+        ):
             sm.run_sync()
             got = sm.run_sync()
 
@@ -172,7 +207,10 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         sm = SyncManagerFactory(user=self.user)
 
         # when
-        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False):
+        with (
+            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),
+            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
+        ):
             sm.run_sync()
             got = sm.run_sync(force_update=True)
 
@@ -188,7 +226,10 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         mock_esi_api.fetch_alliance_contacts.return_value = [contact]
 
         # when
-        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False):
+        with (
+            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),
+            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
+        ):
             sm.run_sync()
 
         # then
@@ -210,6 +251,7 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         # when
         with (
             patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
+            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
             patch(
                 MODELS_PATH + ".EsiContactsContainer.prune",
                 lambda *args, **kwargs: 0,
@@ -236,7 +278,10 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         EveWarFactory()  # should be ignored
 
         # when
-        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
+        with (
+            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
+            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
+        ):
             sm.run_sync()
 
         # then
@@ -262,7 +307,10 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         EveWarFactory()  # should be ignored
 
         # when
-        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
+        with (
+            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
+            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
+        ):
             sm.run_sync()
 
         # then
@@ -284,7 +332,10 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         EveWarFactory()  # should be ignored
 
         # when
-        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
+        with (
+            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
+            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
+        ):
             sm.run_sync()
 
         # then
@@ -310,7 +361,10 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         EveWarFactory()  # should be ignored
 
         # when
-        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
+        with (
+            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
+            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
+        ):
             sm.run_sync()
 
         # then
