@@ -174,7 +174,7 @@ def compress_esi_contacts(contacts: Set[EsiContact]) -> Set[EsiContact]:
     Compressing will remove contacts that have no impact on their effective standing.
     It will remove:
     - faction contacts
-    - charaters and when their alliances exist as contact and has same standing
+    - characters and when their alliances exist as contact and has same standing
     - characters when their corporations exist as contact and has same standing
     - corporations when their alliances exist as contact and has same standing
     - neutral characters when their corporation and alliance do not exist as contact
@@ -282,9 +282,12 @@ class EsiContactsContainer:
         default_factory=dict, init=False, repr=False
     )
 
-    def add_label(self, label: EsiContactLabel):
-        """Add contact label."""
-        self._labels[label.id] = deepcopy(label)
+    def add_eve_contacts(
+        self, contacts: Iterable[object], label_ids: Optional[List[int]] = None
+    ):
+        """Add eve contacts to this container."""
+        for contact in contacts:
+            self.add_contact(EsiContact.from_eve_contact(contact, label_ids=label_ids))
 
     def add_contact(self, contact: EsiContact):
         """Add contact to container. Unknown label IDs will be removed."""
@@ -296,33 +299,16 @@ class EsiContactsContainer:
             label_ids = []
         self._contacts[contact.contact_id] = contact.clone(label_ids=label_ids)
 
-    def update_contact(self, contact: EsiContact) -> bool:
-        """Update an existing contact and return whether it was successful."""
-        if contact.contact_id not in self._contacts:
-            return False
-        self._contacts[contact.contact_id] = contact
-        return True
+    def add_label(self, label: EsiContactLabel):
+        """Add contact label."""
+        self._labels[label.id] = deepcopy(label)
 
-    def add_eve_contacts(
-        self, contacts: Iterable[object], label_ids: Optional[List[int]] = None
-    ):
-        """Add eve contacts to this container."""
-        for contact in contacts:
-            self.add_contact(EsiContact.from_eve_contact(contact, label_ids=label_ids))
-
-    def remove_contact(self, contact: EsiContact):
-        """Remove contact."""
-        try:
-            del self._contacts[contact.contact_id]
-        except KeyError:
-            raise ValueError(
-                f"Unknown contact {contact} could not be removed."
-            ) from None
-
-    def remove_contacts(self, contacts: Iterable[EsiContact]):
-        """Remove several contacts."""
-        for contact in contacts:
-            self.remove_contact(contact)
+    def clone(self) -> "EsiContactsContainer":
+        """Return a clone of this object."""
+        other = self.__class__.from_esi_contacts(
+            contacts=self.contacts(), labels=self.labels()
+        )
+        return other
 
     def contact_by_id(self, contact_id: int) -> EsiContact:
         """Returns contact by it's ID.
@@ -342,44 +328,6 @@ class EsiContactsContainer:
     def contacts(self) -> Set[EsiContact]:
         """Fetch all contacts."""
         return set(self._contacts.values())
-
-    def label_by_id(self, label_id) -> EsiContactLabel:
-        """Returns label by it's ID.
-
-        Raises ValueError when label is not found.
-        """
-        try:
-            return self._labels[label_id]
-        except KeyError:
-            raise ValueError(f"Label with ID {label_id} not found.") from None
-
-    def labels(self) -> Set[EsiContactLabel]:
-        """Fetch all labels."""
-        return set(self._labels.values())
-
-    def war_target_label_id(self) -> Optional[int]:
-        """Fetch the ID of the configured war target label."""
-        for label in self._labels.values():
-            if label.name.lower() == STANDINGSSYNC_WAR_TARGETS_LABEL_NAME.lower():
-                return label.id
-        return None
-
-    def war_targets(self) -> Set[EsiContact]:
-        """Fetch contacts that are war targets."""
-        war_target_id = self.war_target_label_id()
-        contacts = {obj for obj in self.contacts() if war_target_id in obj.label_ids}
-        return contacts
-
-    def remove_war_targets(self):
-        """Remove war targets."""
-        self.remove_contacts(self.war_targets())
-
-    def clone(self) -> "EsiContactsContainer":
-        """Return a clone of this object."""
-        other = self.__class__.from_esi_contacts(
-            contacts=self.contacts(), labels=self.labels()
-        )
-        return other
 
     # pylint: disable = protected-access
     def contacts_difference(
@@ -416,6 +364,38 @@ class EsiContactsContainer:
             for obj in sorted(self._labels.values(), key=lambda o: o.id)
         ]
 
+    def label_by_id(self, label_id) -> EsiContactLabel:
+        """Returns label by it's ID.
+
+        Raises ValueError when label is not found.
+        """
+        try:
+            return self._labels[label_id]
+        except KeyError:
+            raise ValueError(f"Label with ID {label_id} not found.") from None
+
+    def labels(self) -> Set[EsiContactLabel]:
+        """Fetch all labels."""
+        return set(self._labels.values())
+
+    def remove_contact(self, contact: EsiContact):
+        """Remove contact."""
+        try:
+            del self._contacts[contact.contact_id]
+        except KeyError:
+            raise ValueError(
+                f"Unknown contact {contact} could not be removed."
+            ) from None
+
+    def remove_contacts(self, contacts: Iterable[EsiContact]):
+        """Remove several contacts."""
+        for contact in contacts:
+            self.remove_contact(contact)
+
+    def remove_war_targets(self):
+        """Remove war targets."""
+        self.remove_contacts(self.war_targets())
+
     def to_dict(self) -> dict:
         """Convert this object into a stable dictionary."""
         data = {
@@ -424,10 +404,30 @@ class EsiContactsContainer:
         }
         return data
 
+    def update_contact(self, contact: EsiContact) -> bool:
+        """Update an existing contact and return whether it was successful."""
+        if contact.contact_id not in self._contacts:
+            return False
+        self._contacts[contact.contact_id] = contact
+        return True
+
     def version_hash(self) -> str:
         """Calculate hash for current contacts & label in order to identify changes."""
         data = self.to_dict()
         return hashlib.md5(json.dumps(data).encode("utf-8")).hexdigest()
+
+    def war_targets(self) -> Set[EsiContact]:
+        """Fetch contacts that are war targets."""
+        war_target_id = self.war_target_label_id()
+        contacts = {obj for obj in self.contacts() if war_target_id in obj.label_ids}
+        return contacts
+
+    def war_target_label_id(self) -> Optional[int]:
+        """Fetch the ID of the configured war target label."""
+        for label in self._labels.values():
+            if label.name.lower() == STANDINGSSYNC_WAR_TARGETS_LABEL_NAME.lower():
+                return label.id
+        return None
 
     @classmethod
     def from_esi_contacts(
