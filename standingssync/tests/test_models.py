@@ -208,7 +208,13 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         EveWarFactory()  # should be ignored
 
         # when
-        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
+        with (
+            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
+            patch(
+                MODELS_PATH + ".EsiContactsContainer.prune",
+                lambda *args, **kwargs: 0,
+            ),
+        ):
             sm.run_sync()
 
         # then
@@ -349,7 +355,9 @@ class TestSyncManager_AddWarTargets(NoSocketsTestCase):
         )
         alliance_contacts = EsiContactsContainer()
         war = EveWarFactory(defender=alliance_entity)
-        aggressor = EsiContact.from_eve_entity(war.aggressor, -10)
+        aggressor = EsiContact.from_eve_entity(
+            war.aggressor, standing=-10, is_war_target=True
+        )
         # when
         with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
             result = sync_manager._add_war_targets(alliance_contacts)
@@ -383,7 +391,9 @@ class TestSyncManager_AddWarTargets(NoSocketsTestCase):
         alliance_contacts = EsiContactsContainer()
         ally = EveEntity.objects.create(id=1234567)
         war = EveWarFactory(aggressor=alliance_entity, allies=[ally])
-        defender = EsiContact.from_eve_entity(war.defender, -10)
+        defender = EsiContact.from_eve_entity(
+            war.defender, standing=-10, is_war_target=True
+        )
         # when
         with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
             result = sync_manager._add_war_targets(alliance_contacts)
@@ -1000,7 +1010,7 @@ class TestEveWar_UpdateFromESI(TestCaseWithClearCache):
         self.assertEqual(war.started, started)
 
     @pook.on
-    def test_should_update_minimal_warfrom_esi(self):
+    def test_should_update_minimal_war_from_esi(self):
         # given
         war = EveWarEmptyFactory()
         declared = now() - dt.timedelta(days=5)

@@ -67,12 +67,14 @@ class EsiContact:
     contact_type: Category
     standing: float
     label_ids: FrozenSet[int] = field(default_factory=frozenset)
+    is_war_target: bool = False
 
     def __post_init__(self):
         object.__setattr__(self, "contact_id", int(self.contact_id))
         object.__setattr__(self, "contact_type", self.Category(self.contact_type))
         object.__setattr__(self, "standing", float(self.standing))
         object.__setattr__(self, "label_ids", frozenset(self.label_ids))
+        object.__setattr__(self, "is_war_targets", bool(self.is_war_target))
 
     def clone(self, **kwargs) -> "EsiContact":
         """Clone this object and optional overwrite field values with kwargs."""
@@ -88,6 +90,7 @@ class EsiContact:
             "contact_id": self.contact_id,
             "contact_type": self.Category(self.contact_type).value,
             "standing": self.standing,
+            "is_war_target": self.is_war_target,
         }
         if self.label_ids:
             obj["label_ids"] = sorted(list(self.label_ids))
@@ -107,7 +110,11 @@ class EsiContact:
 
     @classmethod
     def from_eve_entity(
-        cls, eve_entity: EveEntity, standing: float, label_ids=None
+        cls,
+        eve_entity: EveEntity,
+        standing: float,
+        label_ids: Optional[Iterable[int]] = None,
+        is_war_target: bool = False,
     ) -> "EsiContact":
         """Create new instance from an EveEntity object."""
         contact_type_map = {
@@ -123,8 +130,9 @@ class EsiContact:
         return cls(
             contact_id=eve_entity.id,
             contact_type=contact_type_map[eve_entity.category],
-            standing=standing,
+            is_war_target=is_war_target,
             label_ids=label_ids if label_ids else frozenset(),
+            standing=standing,
         )
 
     @classmethod
@@ -157,117 +165,14 @@ class _corporation:
     standing: float
     alliance_id: Optional[int] = None
     faction_id: Optional[int] = None
+    is_war_target: bool = False
 
 
 @dataclass
 class _alliance:
     id: int
     standing: float
-
-
-# TODO: Consider converting this apply to an ESI Contact container for war targets
-
-
-def compress_esi_contacts(contacts: Set[EsiContact]) -> Set[EsiContact]:
-    """Compress contacts.
-
-    Compressing will remove contacts that have no impact on their effective standing.
-    It will remove:
-    - faction contacts
-    - characters and when their alliances exist as contact and has same standing
-    - characters when their corporations exist as contact and has same standing
-    - corporations when their alliances exist as contact and has same standing
-    - neutral characters when their corporation and alliance do not exist as contact
-    - neutral corporations when their corporation and alliance do not exist as contact
-    - neutral alliances
-    """
-    # collect contacts
-    characters = {
-        x.contact_id: _character(id=x.contact_id, corporation_id=0, standing=x.standing)
-        for x in contacts
-        if x.contact_type == EsiContact.Category.CHARACTER
-    }
-    corporations = {
-        x.contact_id: _corporation(id=x.contact_id, standing=x.standing)
-        for x in contacts
-        if x.contact_type == EsiContact.Category.CORPORATION
-    }
-    alliances = {
-        x.contact_id: _alliance(id=x.contact_id, standing=x.standing)
-        for x in contacts
-        if x.contact_type == EsiContact.Category.ALLIANCE
-    }
-
-    # add character affiliations
-    for chunk in chunks(list(characters.keys()), 1000):
-        affiliations = esi.client.Character.PostCharactersAffiliation(
-            body=chunk
-        ).result(use_etag=False)
-        for x in affiliations:
-            characters[x.character_id].corporation_id = x.corporation_id
-            characters[x.character_id].alliance_id = x.alliance_id
-
-    # add corporation affiliations
-    for corporation_id in corporations.keys():
-        info = esi.client.Corporation.GetCorporationsCorporationId(
-            corporation_id=corporation_id
-        ).result(use_etag=False)
-        corporations[corporation_id].alliance_id = info.alliance_id
-
-    # remove redundant alliances
-    for alliance_id in list(alliances.keys()):
-        obj = alliances[alliance_id]
-        if obj.standing == 0:
-            del alliances[alliance_id]
-
-    # remove redundant corporations
-    for corporation_id in list(corporations.keys()):
-        obj = corporations[corporation_id]
-        alliance = None
-        if obj.alliance_id:
-            try:
-                alliance = alliances[obj.alliance_id]
-            except KeyError:
-                pass
-
-        if alliance and alliance.standing == obj.standing:
-            del corporations[corporation_id]
-            continue
-
-        if obj.standing == 0 and not alliance:
-            del corporations[corporation_id]
-            continue
-
-    # remove redundant characters
-    for character_id in list(characters.keys()):
-        obj = characters[character_id]
-        try:
-            corporation = corporations[obj.corporation_id]
-        except KeyError:
-            corporation = None
-
-        if corporation and corporation.standing == obj.standing:
-            del characters[character_id]
-
-        alliance = None
-        if obj.alliance_id:
-            try:
-                alliance = alliances[obj.alliance_id]
-            except KeyError:
-                pass
-
-        if alliance and alliance.standing == obj.standing:
-            del characters[character_id]
-            continue
-
-        if obj.standing == 0 and not corporation and not alliance:
-            del characters[character_id]
-            continue
-
-    # create updated contact set
-    remaining_ids = characters.keys() | corporations.keys() | alliances.keys()
-    contacts_2 = {x for x in contacts if x.contact_id in remaining_ids}
-    return contacts_2
+    is_war_target: bool = False
 
 
 # pylint: disable = too-many-public-methods
@@ -377,6 +282,140 @@ class EsiContactsContainer:
     def labels(self) -> Set[EsiContactLabel]:
         """Fetch all labels."""
         return set(self._labels.values())
+
+    def prune(self, compress=False) -> int:
+        """Prune contacts.
+
+        Prune will remove contacts shadowing the standing of war targets:
+        - characters belonging to a war target with different standings
+        - corporations belonging to a war target with different standings
+
+        When compress is True, prune will also remove contacts
+        which are unnecessary to calculate their effective standing:
+        - faction contacts
+        - characters and when their alliances exist as contact and has same standing
+        - characters when their corporations exist as contact and has same standing
+        - corporations when their alliances exist as contact and has same standing
+        - neutral characters when their corporation and alliance do not exist as contact
+        - neutral corporations when their corporation and alliance do not exist as contact
+        - neutral alliances
+        """
+        # collect contacts
+        characters = {
+            x.contact_id: _character(
+                id=x.contact_id, corporation_id=0, standing=x.standing
+            )
+            for x in self.contacts()
+            if x.contact_type == EsiContact.Category.CHARACTER
+        }
+        corporations = {
+            x.contact_id: _corporation(
+                id=x.contact_id, standing=x.standing, is_war_target=x.is_war_target
+            )
+            for x in self.contacts()
+            if x.contact_type == EsiContact.Category.CORPORATION
+        }
+        alliances = {
+            x.contact_id: _alliance(
+                id=x.contact_id, standing=x.standing, is_war_target=x.is_war_target
+            )
+            for x in self.contacts()
+            if x.contact_type == EsiContact.Category.ALLIANCE
+        }
+
+        # add character affiliations
+        for chunk in chunks(list(characters.keys()), 1000):
+            affiliations = esi.client.Character.PostCharactersAffiliation(
+                body=chunk
+            ).result(use_etag=False)
+            for x in affiliations:
+                characters[x.character_id].corporation_id = x.corporation_id
+                characters[x.character_id].alliance_id = x.alliance_id
+
+        # add corporation affiliations
+        for corporation_id in corporations.keys():
+            info = esi.client.Corporation.GetCorporationsCorporationId(
+                corporation_id=corporation_id
+            ).result(use_etag=False)
+            corporations[corporation_id].alliance_id = info.alliance_id
+
+        # remove alliances
+        if compress:
+            for alliance_id in list(alliances.keys()):
+                obj = alliances[alliance_id]
+                if obj.standing == 0:
+                    del alliances[alliance_id]
+
+        # remove corporations
+        for corporation_id in list(corporations.keys()):
+            obj = corporations[corporation_id]
+            alliance = None
+            if obj.alliance_id:
+                try:
+                    alliance = alliances[obj.alliance_id]
+                except KeyError:
+                    pass
+
+            if alliance and alliance.is_war_target:
+                del corporations[corporation_id]
+                continue
+
+            if compress and alliance and alliance.standing == obj.standing:
+                del corporations[corporation_id]
+                continue
+
+            if compress and obj.standing == 0 and not alliance:
+                del corporations[corporation_id]
+                continue
+
+        # remove characters
+        for character_id in list(characters.keys()):
+            obj = characters[character_id]
+            try:
+                corporation = corporations[obj.corporation_id]
+            except KeyError:
+                corporation = None
+
+            if corporation and corporation.is_war_target:
+                del characters[character_id]
+                continue
+
+            if compress and corporation and corporation.standing == obj.standing:
+                del characters[character_id]
+                continue
+
+            alliance = None
+            if obj.alliance_id:
+                try:
+                    alliance = alliances[obj.alliance_id]
+                except KeyError:
+                    pass
+
+            if alliance and alliance.is_war_target:
+                del characters[character_id]
+                continue
+
+            if compress and alliance and alliance.standing == obj.standing:
+                del characters[character_id]
+                continue
+
+            if compress and obj.standing == 0 and not corporation and not alliance:
+                del characters[character_id]
+                continue
+
+        # updated contacts
+        remaining_ids = characters.keys() | corporations.keys() | alliances.keys()
+        if not compress:
+            remaining_ids |= {
+                x.contact_id
+                for x in self.contacts()
+                if x.contact_type == EsiContact.Category.FACTION
+            }
+        to_delete = self.contact_ids().difference(remaining_ids)
+        for contact_id in to_delete:
+            del self._contacts[contact_id]
+
+        return len(to_delete)
 
     def remove_contact(self, contact: EsiContact):
         """Remove contact."""

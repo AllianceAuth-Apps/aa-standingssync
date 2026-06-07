@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
+### Added
+
+- Removes contacts that are shadowing war target contact
+- Can remove contacts from downloaded alliance contacts which are redundant in terms of effective standing to reduce number of contacts that have to be synced to characters.
+This is an experimental feature can be turned on with STANDINGSSYNC_COMPRESS_CONTACTS
+
 ## [3.0.0b1] - 2026-06-05
 
 This release adds support for Alliance Auth V5 and contains breaking changes.

@@ -25,11 +25,7 @@ from standingssync.app_settings import (
     STANDINGSSYNC_SYNC_TIMEOUT,
 )
 from standingssync.core import esi_api
-from standingssync.core.esi_contacts import (
-    EsiContact,
-    EsiContactsContainer,
-    compress_esi_contacts,
-)
+from standingssync.core.esi_contacts import EsiContact, EsiContactsContainer
 from standingssync.helpers import store_json
 from standingssync.managers import EveContactManager, EveWarManager, SyncManagerManager
 
@@ -149,19 +145,13 @@ class SyncManager(_SyncBaseModel):
             raise RuntimeError(f"{self}: Can not sync. No valid token found.")
 
         esi_contacts = esi_api.fetch_alliance_contacts(self.alliance.alliance_id, token)
-        if STANDINGSSYNC_COMPRESS_CONTACTS:
-            esi_contacts_2 = compress_esi_contacts(esi_contacts)
-            logger.info(
-                "%s: Compressed contacts from %d to %d",
-                self,
-                len(esi_contacts),
-                len(esi_contacts_2),
-            )
-        else:
-            esi_contacts_2 = esi_contacts
-
-        contacts = EsiContactsContainer.from_esi_contacts(esi_contacts_2)
+        contacts = EsiContactsContainer.from_esi_contacts(esi_contacts)
         war_target_ids = self._add_war_targets(contacts)
+
+        if STANDINGSSYNC_COMPRESS_CONTACTS or STANDINGSSYNC_ADD_WAR_TARGETS:
+            removed_count = contacts.prune(compress=STANDINGSSYNC_COMPRESS_CONTACTS)
+            logger.info("%s: Pruned contacts. Removed %d", self, removed_count)
+
         new_version_hash = contacts.version_hash()
 
         if force_update or new_version_hash != self.version_hash:
@@ -203,7 +193,10 @@ class SyncManager(_SyncBaseModel):
         war_target_ids = set()
         for war_target in war_targets:
             try:
-                contacts.add_contact(EsiContact.from_eve_entity(war_target, -10.0))
+                wt = EsiContact.from_eve_entity(
+                    war_target, standing=-10.0, is_war_target=True
+                )
+                contacts.add_contact(wt)
             except ValueError:  # eve_entity has no category
                 logger.warning("Skipping unresolved war target: %s", war_target)
             else:
