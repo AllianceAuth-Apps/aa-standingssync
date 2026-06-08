@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
+## [3.0.0b2] - 2026-06-08
+
+### Added
+
+- Will abort sync attempt with error and show error message when the number of contacts to sync exceeds the limit for character contacts (=1024)
+- Added optional filters to help reduce the number of contacts to stay below the limit for characters. The filters can be configured per sync manager on the admin site:
+  - Compress contacts: Removes contacts which are unnecessary for calculating their effective standing.
+  - Exclude characters: Excludes all character contacts
+  - Exclude negative standings: Excludes all contacts with negative standing
+  - Exclude positive standings: Excludes all contacts with positive standing
+
+### Changed
+
+- Contacts that are shadowing war target contacts are now automatically removed
+
 ## [3.0.0b1] - 2026-06-05
 
 This release adds support for Alliance Auth V5 and contains breaking changes.

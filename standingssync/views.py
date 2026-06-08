@@ -18,6 +18,7 @@ from standingssync.app_settings import (
     STANDINGSSYNC_REPLACE_CONTACTS,
     STANDINGSSYNC_WAR_TARGETS_LABEL_NAME,
 )
+from standingssync.constants import MAX_CHARACTER_CONTACTS
 from standingssync.models import EveWar, SyncedCharacter, SyncManager
 
 logger = get_extension_logger(__name__)
@@ -82,7 +83,6 @@ def characters(request):
                 }
             )
 
-    if sync_manager:
         alliance = sync_manager.alliance
         alliance_contacts_count = (
             sync_manager.contacts.filter(is_war_target=False).count()  # type: ignore
@@ -100,6 +100,8 @@ def characters(request):
         alliance_contacts_count = None
         alliance_war_targets_count = None
 
+    total_contacts = (alliance_contacts_count or 0) + (alliance_war_targets_count or 0)
+
     context = {
         "page_title": "My Characters",
         "synced_characters": synced_characters,
@@ -108,6 +110,7 @@ def characters(request):
         "alliance_contacts_count": alliance_contacts_count,
         "alliance_war_targets_count": alliance_war_targets_count,
         "war_targets_label_name": STANDINGSSYNC_WAR_TARGETS_LABEL_NAME,
+        "overflow": total_contacts > MAX_CHARACTER_CONTACTS,
     }
 
     return render(request, "standingssync/characters.html", common_context(context))

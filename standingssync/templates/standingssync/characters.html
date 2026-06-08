@@ -23,6 +23,12 @@
                     {{ alliance_war_targets_count }} war targets
                 {% endif %}
                 )
+                {% if overflow %}
+                <span class="text-danger"><i class="fas fa-exclamation-triangle"></i>
+                    <strong>Sync offline: Too many contacts</strong>
+                </span>
+                {% endif %}
+
             {% else %}
                 <p class="text-muted">Not configured</p>
             {% endif %}

@@ -155,7 +155,7 @@ def fetch_war_ids(min_war_id: int = 0) -> Set[int]:
 
     Args:
         min_war_id: when provided will only return war IDs higher then this value.
-            this prevends this function to re-fetch the same war IDs again from ESI.
+            this prevents this function to re-fetch the same war IDs again from ESI.
     """
     war_ids = []
     war_ids_page = esi.client.Wars.GetWars().result(use_etag=False)
