@@ -1,6 +1,6 @@
 import datetime as dt
 from http import HTTPStatus
-from typing import Set
+from typing import List, NamedTuple, Set
 from unittest.mock import patch
 
 import pook
@@ -13,6 +13,7 @@ from eveuniverse.tests.testdata.factories_2 import (
     EveEntityAllianceFactory,
     EveEntityCharacterFactory,
     EveEntityCorporationFactory,
+    EveEntityFactionFactory,
 )
 
 from allianceauth.eveonline.models import EveCharacter
@@ -27,8 +28,10 @@ from standingssync.models import (
     _get_or_create_eve_entity_from_participant,
 )
 from standingssync.tests.factories import (
+    EsiContactAllianceFactory,
     EsiContactCharacterFactory,
     EsiContactCorporationFactory,
+    EsiContactFactionFactory,
     EsiContactLabelFactory,
     EveContactFactory,
     EveWarEmptyFactory,
@@ -123,10 +126,7 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         sm = SyncManagerFactory(user=self.user)
 
         # when
-        with (
-            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),
-            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
-        ):
+        with (patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),):
             sm.run_sync()
 
         # then
@@ -135,34 +135,6 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         self.assertEqual(contact.eve_entity.id, contact_esi.contact_id)
         self.assertEqual(contact.standing, contact_esi.standing)
         self.assertFalse(contact.is_war_target)
-
-    def test_should_add_new_contacts_from_scratch_no_wt_and_ignore_characters(
-        self, mock_esi_api
-    ):
-        # given
-        esi_contact_1 = EsiContactCharacterFactory()
-        esi_contact_2 = EsiContactCorporationFactory()
-        mock_esi_api.fetch_alliance_contacts.return_value = [
-            esi_contact_1,
-            esi_contact_2,
-        ]
-        EveEntityCharacterFactory(id=esi_contact_1.contact_id)
-        EveEntityCorporationFactory(id=esi_contact_2.contact_id)
-        sm = SyncManagerFactory(user=self.user)
-
-        # when
-        with (
-            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),
-            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", True),
-        ):
-            sm.run_sync()
-
-        # then
-        self.assertEqual(sm.contacts.count(), 1)
-        contact_2: EveContact = sm.contacts.first()
-        self.assertEqual(contact_2.eve_entity.id, contact_2.contact_id)
-        self.assertEqual(contact_2.standing, contact_2.standing)
-        self.assertFalse(contact_2.is_war_target)
 
     def test_should_update_existing_contacts_no_wt(self, mock_esi_api):
         # given
@@ -189,10 +161,7 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         sm = SyncManagerFactory(user=self.user)
 
         # when
-        with (
-            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),
-            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
-        ):
+        with (patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),):
             sm.run_sync()
             got = sm.run_sync()
 
@@ -207,10 +176,7 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         sm = SyncManagerFactory(user=self.user)
 
         # when
-        with (
-            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),
-            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
-        ):
+        with (patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),):
             sm.run_sync()
             got = sm.run_sync(force_update=True)
 
@@ -226,10 +192,7 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         mock_esi_api.fetch_alliance_contacts.return_value = [contact]
 
         # when
-        with (
-            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),
-            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
-        ):
+        with (patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),):
             sm.run_sync()
 
         # then
@@ -251,7 +214,6 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         # when
         with (
             patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
-            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
             patch(
                 MODELS_PATH + ".EsiContactsContainer.prune",
                 lambda *args, **kwargs: 0,
@@ -278,10 +240,7 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         EveWarFactory()  # should be ignored
 
         # when
-        with (
-            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
-            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
-        ):
+        with (patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),):
             sm.run_sync()
 
         # then
@@ -307,10 +266,7 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         EveWarFactory()  # should be ignored
 
         # when
-        with (
-            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
-            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
-        ):
+        with (patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),):
             sm.run_sync()
 
         # then
@@ -332,10 +288,7 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         EveWarFactory()  # should be ignored
 
         # when
-        with (
-            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
-            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
-        ):
+        with (patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),):
             sm.run_sync()
 
         # then
@@ -361,10 +314,7 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         EveWarFactory()  # should be ignored
 
         # when
-        with (
-            patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
-            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
-        ):
+        with (patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),):
             sm.run_sync()
 
         # then
@@ -397,6 +347,194 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         # when/then
         with self.assertRaises(RuntimeError):
             sync_manager.run_sync()
+
+
+@patch(MODELS_PATH + ".esi_api")
+class TestSyncManager_RunSync_Filters(NoSocketsTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = UserMainManagerFactory()
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
+    def test_should_apply_contact_filters_no_wt(self, mock_esi_api):
+        # given
+        alliance_bad = EsiContactAllianceFactory(contact_id=3011, standing=-5)
+        alliance_good = EsiContactAllianceFactory(contact_id=3001, standing=5)
+        alliance_neutral = EsiContactAllianceFactory(contact_id=3002, standing=0)
+        character_bad = EsiContactCharacterFactory(contact_id=1011, standing=-5)
+        character_good = EsiContactCharacterFactory(contact_id=1001, standing=5)
+        character_neutral = EsiContactCharacterFactory(contact_id=1002, standing=0)
+        corporation_bad = EsiContactCorporationFactory(contact_id=2011, standing=-5)
+        corporation_good = EsiContactCorporationFactory(contact_id=2001, standing=5)
+        corporation_neutral = EsiContactCorporationFactory(contact_id=2002, standing=0)
+        faction_bad = EsiContactFactionFactory(contact_id=5011, standing=-5)
+        faction_good = EsiContactFactionFactory(contact_id=5001, standing=5)
+        faction_neutral = EsiContactFactionFactory(contact_id=5002, standing=0)
+        contacts = [
+            alliance_bad,
+            alliance_good,
+            alliance_neutral,
+            character_bad,
+            character_good,
+            character_neutral,
+            corporation_bad,
+            corporation_good,
+            corporation_neutral,
+            faction_bad,
+            faction_good,
+            faction_neutral,
+        ]
+
+        mock_esi_api.fetch_alliance_contacts.return_value = contacts
+        for c in contacts:
+            match c.contact_type:
+                case EsiContact.Category.ALLIANCE:
+                    EveEntityAllianceFactory(id=c.contact_id)
+                case EsiContact.Category.CHARACTER:
+                    EveEntityCharacterFactory(id=c.contact_id)
+                case EsiContact.Category.CORPORATION:
+                    EveEntityCorporationFactory(id=c.contact_id)
+                case EsiContact.Category.FACTION:
+                    EveEntityFactionFactory(id=c.contact_id)
+
+        class Case(NamedTuple):
+            exclude_character_contacts: bool
+            exclude_positive_standings: bool
+            exclude_negative_standings: bool
+            want: List[EsiContact]
+
+        cases = [
+            Case(
+                exclude_character_contacts=False,
+                exclude_positive_standings=False,
+                exclude_negative_standings=False,
+                want=[
+                    alliance_bad,
+                    alliance_good,
+                    alliance_neutral,
+                    character_bad,
+                    character_good,
+                    character_neutral,
+                    corporation_bad,
+                    corporation_good,
+                    corporation_neutral,
+                    faction_bad,
+                    faction_good,
+                    faction_neutral,
+                ],
+            ),
+            Case(
+                exclude_character_contacts=True,
+                exclude_positive_standings=False,
+                exclude_negative_standings=False,
+                want=[
+                    alliance_bad,
+                    alliance_good,
+                    alliance_neutral,
+                    corporation_bad,
+                    corporation_good,
+                    corporation_neutral,
+                    faction_bad,
+                    faction_good,
+                    faction_neutral,
+                ],
+            ),
+            Case(
+                exclude_character_contacts=False,
+                exclude_positive_standings=True,
+                exclude_negative_standings=False,
+                want=[
+                    alliance_bad,
+                    alliance_neutral,
+                    character_bad,
+                    character_neutral,
+                    corporation_bad,
+                    corporation_neutral,
+                    faction_bad,
+                    faction_neutral,
+                ],
+            ),
+            Case(
+                exclude_character_contacts=False,
+                exclude_positive_standings=False,
+                exclude_negative_standings=True,
+                want=[
+                    alliance_good,
+                    alliance_neutral,
+                    character_good,
+                    character_neutral,
+                    corporation_good,
+                    corporation_neutral,
+                    faction_good,
+                    faction_neutral,
+                ],
+            ),
+            Case(
+                exclude_character_contacts=False,
+                exclude_positive_standings=True,
+                exclude_negative_standings=True,
+                want=[
+                    alliance_neutral,
+                    character_neutral,
+                    corporation_neutral,
+                    faction_neutral,
+                ],
+            ),
+            Case(
+                exclude_character_contacts=True,
+                exclude_positive_standings=True,
+                exclude_negative_standings=False,
+                want=[
+                    alliance_bad,
+                    alliance_neutral,
+                    corporation_bad,
+                    corporation_neutral,
+                    faction_bad,
+                    faction_neutral,
+                ],
+            ),
+            Case(
+                exclude_character_contacts=True,
+                exclude_positive_standings=False,
+                exclude_negative_standings=True,
+                want=[
+                    alliance_good,
+                    alliance_neutral,
+                    corporation_good,
+                    corporation_neutral,
+                    faction_good,
+                    faction_neutral,
+                ],
+            ),
+            Case(
+                exclude_character_contacts=True,
+                exclude_positive_standings=True,
+                exclude_negative_standings=True,
+                want=[
+                    alliance_neutral,
+                    corporation_neutral,
+                    faction_neutral,
+                ],
+            ),
+        ]
+        for i, tc in enumerate(cases, start=1):
+            with self.subTest(num=i):
+                sm = SyncManagerFactory(
+                    user=self.user,
+                    exclude_character_contacts=tc.exclude_character_contacts,
+                    exclude_positive_standings=tc.exclude_positive_standings,
+                    exclude_negative_standings=tc.exclude_negative_standings,
+                )
+
+                # when
+                sm.run_sync()
+
+                # then
+                got = set(sm.contacts.values_list("eve_entity__id", flat=True))
+                want = {x.contact_id for x in tc.want}
+                self.assertSetEqual(got, want)
+                sm.delete()
 
 
 class TestSyncManager_AddWarTargets(NoSocketsTestCase):

@@ -1,0 +1,5 @@
+/* Prevent change form labels from wrapping */
+.field-box .column-label label,
+.form-row label {
+    white-space: nowrap !important;
+}

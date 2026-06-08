@@ -143,8 +143,6 @@ Name|Description|Default
 --|--|--
 `STANDINGSSYNC_ADD_WAR_TARGETS`|When enabled will automatically add or set war targets  with standing = -10 to synced characters.  Note that for this to work a character also needs to have created  a custom label with the correct name.  See also `STANDINGSSYNC_WAR_TARGETS_LABEL_NAME`.|`False`
 `STANDINGSSYNC_CHAR_MIN_STANDING`|Minimum standing a character needs to have in order to get alliance contacts. Any char with a standing smaller than this value will be rejected. Set to `0.0` if you want to allow neutral alts to sync.|`0.1`
-`STANDINGSSYNC_COMPRESS_CONTACTS`|When enabled will remove contacts from downloaded alliance contacts which are not necessary for calculating it's effective standing. This helps to reduce the overall number of contacts that are synced to characters. This is an experimental feature.|`False`
-`STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS`|When enabled will exclude character contacts from syncing. This can help to reduce the overall number of contacts below the 1024 contact limit.|`False`
 `STANDINGSSYNC_REPLACE_CONTACTS`|When enabled will replace contacts of synced characters with alliance contacts.|`True`
 `STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED`|Wether to store contacts received from ESI to disk. This is for debugging.|`False`
 `STANDINGSSYNC_SYNC_TIMEOUT`|Duration in minutes after which a delayed sync for managers and characters is reported as down. This value should be aligned with the frequency of the sync task.|`180`

@@ -18,22 +18,6 @@ Any char with a standing smaller than this value will be rejected.
 Set to `0.0` if you want to allow neutral alts to sync.
 """
 
-STANDINGSSYNC_COMPRESS_CONTACTS = clean_setting(
-    "STANDINGSSYNC_COMPRESS_CONTACTS", False
-)
-"""When enabled will remove contacts from downloaded alliance contacts
-which are not necessary for calculating it's effective standing.
-This helps to reduce the overall number of contacts that are synced to characters.
-This is an experimental feature.
-"""
-
-STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS = clean_setting(
-    "STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False
-)
-"""When enabled will exclude character contacts from syncing.
-This can help to reduce the overall number of contacts below the 1024 contact limit.
-"""
-
 STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED = clean_setting(
     "STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED", False
 )

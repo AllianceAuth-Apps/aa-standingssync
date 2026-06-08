@@ -85,8 +85,6 @@ class TestTasksE2E(TestCaseWithClearCache):
         with (
             patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True),
             patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),
-            patch(MODELS_PATH + ".STANDINGSSYNC_COMPRESS_CONTACTS", False),
-            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
         ):
             tasks.run_manager_sync.delay(manager_pk=sm.pk)
 
@@ -174,8 +172,6 @@ class TestTasksE2E(TestCaseWithClearCache):
         with (
             patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True),
             patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
-            patch(MODELS_PATH + ".STANDINGSSYNC_COMPRESS_CONTACTS", False),
-            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
             patch(
                 ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME",
                 wt_label_name,
@@ -190,7 +186,7 @@ class TestTasksE2E(TestCaseWithClearCache):
     def test_should_sync_manager_and_character_with_war_targets_and_compress(self):
         # given
         user_1 = UserMainManagerFactory()
-        sm = SyncManagerFactory(user=user_1)
+        sm = SyncManagerFactory(user=user_1, compress_contacts=True)
         alliance_id = user_1.profile.main_character.alliance_id
         contact_1_id = 1001
         EveEntityCharacterFactory(id=contact_1_id)
@@ -267,8 +263,6 @@ class TestTasksE2E(TestCaseWithClearCache):
         with (
             patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True),
             patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),
-            patch(MODELS_PATH + ".STANDINGSSYNC_COMPRESS_CONTACTS", True),
-            patch(MODELS_PATH + ".STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS", False),
             patch(
                 ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME",
                 wt_label_name,

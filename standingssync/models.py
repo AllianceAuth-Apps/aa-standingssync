@@ -19,8 +19,6 @@ from allianceauth.services.hooks import get_extension_logger
 from standingssync.app_settings import (
     STANDINGSSYNC_ADD_WAR_TARGETS,
     STANDINGSSYNC_CHAR_MIN_STANDING,
-    STANDINGSSYNC_COMPRESS_CONTACTS,
-    STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS,
     STANDINGSSYNC_REPLACE_CONTACTS,
     STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED,
     STANDINGSSYNC_SYNC_TIMEOUT,
@@ -81,6 +79,25 @@ class SyncManager(_SyncBaseModel):
         max_length=32,
         default="",
         help_text="hash over all contacts to identify when it has changed",
+    )
+    compress_contacts = models.BooleanField(
+        default=False,
+        help_text=(
+            "Removes contacts which are unnecessary for calculating "
+            "their effective standing."
+        ),
+    )
+    exclude_character_contacts = models.BooleanField(
+        default=False,
+        help_text="Excludes all character contacts",
+    )
+    exclude_negative_standings = models.BooleanField(
+        default=False,
+        help_text="Excludes all contacts with negative standing",
+    )
+    exclude_positive_standings = models.BooleanField(
+        default=False,
+        help_text="Excludes all contacts with positive standing",
     )
 
     objects = SyncManagerManager()
@@ -146,7 +163,13 @@ class SyncManager(_SyncBaseModel):
             raise RuntimeError(f"{self}: Can not sync. No valid token found.")
 
         esi_contacts = esi_api.fetch_alliance_contacts(self.alliance.alliance_id, token)
-        if STANDINGSSYNC_EXCLUDE_CHARACTER_CONTACTS:
+        if self.exclude_positive_standings:
+            esi_contacts = {x for x in esi_contacts if x.standing <= 0}
+
+        if self.exclude_negative_standings:
+            esi_contacts = {x for x in esi_contacts if x.standing >= 0}
+
+        if self.exclude_character_contacts:
             esi_contacts = {
                 x
                 for x in esi_contacts
@@ -156,8 +179,8 @@ class SyncManager(_SyncBaseModel):
         contacts = EsiContactsContainer.from_esi_contacts(esi_contacts)
         war_target_ids = self._add_war_targets(contacts)
 
-        if STANDINGSSYNC_COMPRESS_CONTACTS or STANDINGSSYNC_ADD_WAR_TARGETS:
-            removed_count = contacts.prune(compress=STANDINGSSYNC_COMPRESS_CONTACTS)
+        if self.compress_contacts or STANDINGSSYNC_ADD_WAR_TARGETS:
+            removed_count = contacts.prune(compress=self.compress_contacts)
             logger.info("%s: Pruned contacts. Removed %d", self, removed_count)
 
         new_version_hash = contacts.version_hash()
