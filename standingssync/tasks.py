@@ -12,6 +12,7 @@ from allianceauth.services.hooks import get_extension_logger
 from allianceauth.services.tasks import QueueOnce
 
 from standingssync.app_settings import STANDINGSSYNC_ADD_WAR_TARGETS
+from standingssync.constants import MAX_CHARACTER_CONTACTS
 from standingssync.models import EveWar, SyncedCharacter, SyncManager
 
 logger = get_extension_logger(__name__)
@@ -32,10 +33,8 @@ def run_regular_sync():
     if STANDINGSSYNC_ADD_WAR_TARGETS:
         sync_all_wars.apply_async(priority=DEFAULT_TASK_PRIORITY)
 
-    for sync_manager_pk in SyncManager.objects.values_list("pk", flat=True):
-        run_manager_sync.apply_async(
-            args=[sync_manager_pk], priority=DEFAULT_TASK_PRIORITY
-        )
+    for pk in SyncManager.objects.values_list("pk", flat=True):
+        run_manager_sync.apply_async(args=[pk], priority=DEFAULT_TASK_PRIORITY)
 
 
 @shared_task(base=QueueOnce, bind=True)
@@ -47,32 +46,34 @@ def run_manager_sync(_self, manager_pk: int, force_update: bool = False):
     - manage_pk: primary key of sync manager to run sync for
     - force_update: will force update of manager even if not needed
     """
-    sync_manager = SyncManager.objects.get(pk=manager_pk)
-    sync_manager.run_sync(force_update)
-    sync_characters = sync_manager.synced_characters.values_list("pk", flat=True)
-    for character_pk in sync_characters:
+    sm = SyncManager.objects.get(pk=manager_pk)
+    sm.run_sync(force_update)
+    if sm.contacts.count() > MAX_CHARACTER_CONTACTS:
+        raise RuntimeError(f"{sm}: Too many contacts")
+
+    for character_pk in sm.synced_characters.values_list("pk", flat=True):
         run_character_sync.apply_async(
-            kwargs={"sync_char_pk": character_pk}, priority=DEFAULT_TASK_PRIORITY
+            kwargs={"pk": character_pk}, priority=DEFAULT_TASK_PRIORITY
         )
 
 
 @shared_task(base=QueueOnce, bind=True)
 @rate_limit_retry_task
-def run_character_sync(_self, sync_char_pk: int):
+def run_character_sync(_self, pk: int):
     """updates in-game contacts for given character
 
     Args:
     - sync_char_pk: primary key of sync character to run sync for
     """
-    synced_character = SyncedCharacter.objects.get(pk=sync_char_pk)
-    synced_character.run_sync()
+    sc = SyncedCharacter.objects.get(pk=pk)
+    sc.run_sync()
 
 
 @shared_task
-def character_delete_all_contacts(sync_char_pk: int):
+def character_delete_all_contacts(pk: int):
     """Delete contacts of this character."""
-    synced_character = SyncedCharacter.objects.get(pk=sync_char_pk)
-    synced_character.delete_all_contacts()
+    sc = SyncedCharacter.objects.get(pk=pk)
+    sc.delete_all_contacts()
 
 
 @shared_task(base=QueueOnce, bind=True, once={"timeout": ONCE_TIMEOUT})

@@ -4,6 +4,7 @@
 
 from django.contrib import admin
 from django.db.models import Prefetch
+from django.utils.html import format_html
 from eveuniverse.models import EveEntity
 
 from standingssync import tasks
@@ -217,19 +218,50 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
 
 @admin.register(SyncManager)
 class SyncManagerAdmin(admin.ModelAdmin):
+    class Media:
+        css = {"all": ("admin/custom_admin.css",)}
+
     list_display = (
         "_alliance_name",
-        "_alliance_contacts_count",
-        "_wt_contacts_count",
-        "_synced_characters_count",
+        "_contacts_count",
+        "_filters",
+        "_characters_count",
         "_user",
         "_character_name",
         "_is_fresh",
         "last_sync_at",
     )
-    list_display_links = None
     list_filter = (("character_ownership__user", admin.RelatedOnlyFieldListFilter),)
     actions = ["start_sync_managers"]
+    readonly_fields = (
+        "alliance",
+        "character_ownership",
+        "version_hash",
+        "last_sync_at",
+    )
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": ("alliance", "character_ownership", "last_sync_at"),
+            },
+        ),
+        (
+            "Contact filters",
+            {
+                "fields": (
+                    "compress_contacts",
+                    "exclude_character_contacts",
+                    "exclude_negative_standings",
+                    "exclude_positive_standings",
+                ),
+                "description": (
+                    "Changes to filters will be applied at the next sync. "
+                    "Filters do not effect war target contacts."
+                ),
+            },
+        ),
+    )
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -238,31 +270,44 @@ class SyncManagerAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-    @admin.display(ordering="character_ownership__user__username")
+    @admin.display(ordering="character_ownership__user__username", description="User")
     def _user(self, obj):
         return obj.character_ownership.user if obj.character_ownership else None
 
-    @admin.display(ordering="character_ownership__character__character_name")
+    @admin.display(
+        ordering="character_ownership__character__character_name",
+        description="Character",
+    )
     def _character_name(self, obj):
         try:
             return obj.character.character_name
         except ValueError:
             return ""
 
-    @admin.display(ordering="alliance__alliance_name")
+    @admin.display(ordering="alliance__alliance_name", description="Alliance")
     def _alliance_name(self, obj):
         return obj.alliance.alliance_name
 
-    @admin.display(description="Alliance contacts")
-    def _alliance_contacts_count(self, obj):
-        return f"{obj.contacts.filter(is_war_target=False).count():,}"
+    @admin.display(description="Contacts")
+    def _contacts_count(self, obj):
+        return f"{obj.contacts.count():,}"
 
-    @admin.display(description="War targets")
-    def _wt_contacts_count(self, obj):
-        return f"{obj.contacts.filter(is_war_target=True).count():,}"
+    @admin.display(description="Filters")
+    def _filters(self, obj):
+        names = [
+            "compress_contacts",
+            "exclude_character_contacts",
+            "exclude_negative_standings",
+            "exclude_positive_standings",
+        ]
+        parts = []
+        for n in names:
+            value = getattr(obj, n)
+            parts.append(f"{n} = {value}")
+        return format_html("<br>".join(parts))
 
-    @admin.display(description="Synced Characters")
-    def _synced_characters_count(self, obj):
+    @admin.display(description="Characters")
+    def _characters_count(self, obj):
         return f"{obj.synced_characters.count():,}"
 
     @admin.display(boolean=True)

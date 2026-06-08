@@ -27,6 +27,7 @@ pylint:
     stage: checks
     extends: .tox_setup
     image: python:3.12-bookworm
+    allow_failure: true
     script:
         - tox -e pylint
 

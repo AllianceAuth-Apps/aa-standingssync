@@ -80,6 +80,25 @@ class SyncManager(_SyncBaseModel):
         default="",
         help_text="hash over all contacts to identify when it has changed",
     )
+    compress_contacts = models.BooleanField(
+        default=False,
+        help_text=(
+            "Removes contacts which are unnecessary for calculating "
+            "their effective standing."
+        ),
+    )
+    exclude_character_contacts = models.BooleanField(
+        default=False,
+        help_text="Excludes all character contacts",
+    )
+    exclude_negative_standings = models.BooleanField(
+        default=False,
+        help_text="Excludes all contacts with negative standing",
+    )
+    exclude_positive_standings = models.BooleanField(
+        default=False,
+        help_text="Excludes all contacts with positive standing",
+    )
 
     objects = SyncManagerManager()
 
@@ -144,8 +163,26 @@ class SyncManager(_SyncBaseModel):
             raise RuntimeError(f"{self}: Can not sync. No valid token found.")
 
         esi_contacts = esi_api.fetch_alliance_contacts(self.alliance.alliance_id, token)
+        if self.exclude_positive_standings:
+            esi_contacts = {x for x in esi_contacts if x.standing <= 0}
+
+        if self.exclude_negative_standings:
+            esi_contacts = {x for x in esi_contacts if x.standing >= 0}
+
+        if self.exclude_character_contacts:
+            esi_contacts = {
+                x
+                for x in esi_contacts
+                if x.contact_type != EsiContact.Category.CHARACTER
+            }
+
         contacts = EsiContactsContainer.from_esi_contacts(esi_contacts)
         war_target_ids = self._add_war_targets(contacts)
+
+        if self.compress_contacts or STANDINGSSYNC_ADD_WAR_TARGETS:
+            removed_count = contacts.prune(compress=self.compress_contacts)
+            logger.info("%s: Pruned contacts. Removed %d", self, removed_count)
+
         new_version_hash = contacts.version_hash()
 
         if force_update or new_version_hash != self.version_hash:
@@ -187,7 +224,10 @@ class SyncManager(_SyncBaseModel):
         war_target_ids = set()
         for war_target in war_targets:
             try:
-                contacts.add_contact(EsiContact.from_eve_entity(war_target, -10.0))
+                wt = EsiContact.from_eve_entity(
+                    war_target, standing=-10.0, is_war_target=True
+                )
+                contacts.add_contact(wt)
             except ValueError:  # eve_entity has no category
                 logger.warning("Skipping unresolved war target: %s", war_target)
             else:

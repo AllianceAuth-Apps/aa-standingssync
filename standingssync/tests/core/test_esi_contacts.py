@@ -1,4 +1,7 @@
+from http import HTTPStatus
 from unittest.mock import patch
+
+import pook
 
 from eveuniverse.tests.testdata.factories_2 import (
     EveEntityAllianceFactory,
@@ -15,9 +18,14 @@ from standingssync.core.esi_contacts import (
     EsiContactsContainer,
 )
 from standingssync.tests.factories import (
+    EsiContactAllianceFactory,
+    EsiContactCharacterFactory,
+    EsiContactCorporationFactory,
+    EsiContactFactionFactory,
     EsiContactFactory,
     EsiContactLabelFactory,
     EveContactFactory,
+    make_esi_url,
 )
 
 MODULE_PATH = "standingssync.core.esi_contacts"
@@ -138,9 +146,18 @@ class TestEsiContact(NoSocketsTestCase):
         for eve_entity, expected in params:
             with self.subTest(category=eve_entity.category):
                 # when
-                obj = EsiContact.from_eve_entity(eve_entity=eve_entity, standing=5.0)
+                got = EsiContact.from_eve_entity(eve_entity=eve_entity, standing=5.0)
                 # then
-                self.assertEqual(obj, EsiContact(eve_entity.id, expected, 5.0))
+                self.assertEqual(got, EsiContact(eve_entity.id, expected, 5.0))
+                self.assertFalse(got.is_war_target)
+
+    def test_should_create_from_eve_entities_as_war_target(self):
+        # when
+        got = EsiContact.from_eve_entity(
+            eve_entity=EveEntityCharacterFactory(), standing=-10, is_war_target=True
+        )
+        # then
+        self.assertTrue(got.is_war_target)
 
 
 class TestEsiContactLabel(NoSocketsTestCase):
@@ -488,3 +505,411 @@ class TestEsiContactsCloneComparisons(NoSocketsTestCase):
         self.assertSetEqual(added, {c3})
         self.assertSetEqual(removed, {c2})
         self.assertSetEqual(changed, {c4a})
+
+
+class TestEsiContacts_Prune(NoSocketsTestCase):
+    @pook.on
+    def test_should_remove_neutral_alliances(
+        self,
+    ):
+        # given
+        alliance = EsiContactAllianceFactory(standing=0)
+        contacts = EsiContactsContainer.from_esi_contacts([alliance])
+
+        # when
+        contacts.prune(compress=True)
+
+        # then
+        got = contacts.contacts()
+        want = set()
+        self.assertSetEqual(got, want)
+
+    @pook.on
+    def test_should_not_remove_neutral_alliances(
+        self,
+    ):
+        # given
+        alliance = EsiContactAllianceFactory(standing=0)
+        contacts = EsiContactsContainer.from_esi_contacts([alliance])
+
+        # when
+        contacts.prune(compress=False)
+
+        # then
+        got = contacts.contacts()
+        want = {alliance}
+        self.assertSetEqual(got, want)
+
+    @pook.on
+    def test_should_remove_faction_contacts(
+        self,
+    ):
+        # given
+        faction = EsiContactFactionFactory(standing=5)
+        contacts = EsiContactsContainer.from_esi_contacts([faction])
+
+        # when
+        contacts.prune(compress=True)
+
+        # then
+        got = contacts.contacts()
+        want = set()
+        self.assertSetEqual(got, want)
+
+    @pook.on
+    def test_should_not_remove_faction_contacts(
+        self,
+    ):
+        # given
+        faction = EsiContactFactionFactory(standing=5)
+        contacts = EsiContactsContainer.from_esi_contacts([faction])
+
+        # when
+        contacts.prune(compress=False)
+
+        # then
+        got = contacts.contacts()
+        want = {faction}
+        self.assertSetEqual(got, want)
+
+    @pook.on
+    def test_should_remove_character_when_corporation_exists_and_has_same_standing(
+        self,
+    ):
+        # given
+        corporation = EsiContactCorporationFactory(contact_id=2001, standing=-5)
+        character_1 = EsiContactCharacterFactory(standing=-5)
+        character_2 = EsiContactCharacterFactory(standing=5)
+        pook.post(
+            make_esi_url("characters/affiliation"),
+            reply=HTTPStatus.OK,
+            response_json=[
+                {
+                    "character_id": character_1.contact_id,
+                    "corporation_id": corporation.contact_id,
+                },
+                {
+                    "character_id": character_2.contact_id,
+                    "corporation_id": corporation.contact_id,
+                },
+            ],
+        )
+        pook.get(
+            make_esi_url(f"corporations/{corporation.contact_id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "ceo_id": 90000001,
+                "creator_id": 90000001,
+                "member_count": 42,
+                "name": "name",
+                "tax_rate": 0,
+                "ticker": "ticker",
+            },
+        )
+        contacts = EsiContactsContainer.from_esi_contacts(
+            [corporation, character_1, character_2]
+        )
+
+        # when
+        contacts.prune(compress=True)
+
+        # then
+        got = contacts.contacts()
+        want = {corporation, character_2}
+        self.assertSetEqual(got, want)
+
+    @pook.on
+    def test_should_remove_character_when_alliance_exists_and_has_same_standing(
+        self,
+    ):
+        # given
+        corporation_id = 2001
+        alliance = EsiContactAllianceFactory(contact_id=3001, standing=-5)
+        character_1 = EsiContactCharacterFactory(contact_id=1001, standing=-5)
+        character_2 = EsiContactCharacterFactory(contact_id=1002, standing=5)
+        pook.post(
+            make_esi_url("characters/affiliation"),
+            reply=HTTPStatus.OK,
+            response_json=[
+                {
+                    "alliance_id": alliance.contact_id,
+                    "character_id": character_1.contact_id,
+                    "corporation_id": corporation_id,
+                },
+                {
+                    "character_id": character_2.contact_id,
+                    "corporation_id": corporation_id,
+                },
+            ],
+        )
+        contacts = EsiContactsContainer.from_esi_contacts(
+            [alliance, character_1, character_2]
+        )
+
+        # when
+        contacts.prune(compress=True)
+
+        # then
+        got = contacts.contacts()
+        want = {alliance, character_2}
+        self.assertSetEqual(got, want)
+
+    @pook.on
+    def test_should_remove_corporation_when_alliance_exists_and_has_same_standing(
+        self,
+    ):
+        # given
+        corporation_1_id = 2001
+        corporation_2_id = 2002
+        alliance = EsiContactAllianceFactory(contact_id=3001, standing=-5)
+        corporation_1 = EsiContactCorporationFactory(
+            contact_id=corporation_1_id, standing=-5
+        )
+        corporation_2 = EsiContactCorporationFactory(
+            contact_id=corporation_2_id, standing=5
+        )
+        pook.get(
+            make_esi_url(f"corporations/{corporation_1_id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "ceo_id": 90000001,
+                "creator_id": 90000001,
+                "alliance_id": alliance.contact_id,
+                "member_count": 42,
+                "name": "name",
+                "tax_rate": 0,
+                "ticker": "ticker",
+            },
+            persist=True,
+        )
+        pook.get(
+            make_esi_url(f"corporations/{corporation_2_id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "ceo_id": 90000001,
+                "creator_id": 90000001,
+                "alliance_id": alliance.contact_id,
+                "member_count": 42,
+                "name": "name",
+                "tax_rate": 0,
+                "ticker": "ticker",
+            },
+            persist=True,
+        )
+        all_contacts = [alliance, corporation_1, corporation_2]
+        contacts_1 = EsiContactsContainer.from_esi_contacts(all_contacts)
+        contacts_2 = EsiContactsContainer.from_esi_contacts(all_contacts)
+
+        # when
+        contacts_1.prune(compress=True)
+        contacts_2.prune(compress=False)
+
+        # then
+        got = contacts_1.contacts()
+        want = {alliance, corporation_2}
+        self.assertSetEqual(got, want)
+        self.assertSetEqual(contacts_2.contacts(), set(all_contacts))
+
+    @pook.on
+    def test_should_remove_neutral_characters_when_their_corporation_and_alliance_are_not_contacts(
+        self,
+    ):
+        # given
+        corporation = EsiContactCorporationFactory(contact_id=2001, standing=-5)
+        character_1 = EsiContactCharacterFactory(contact_id=1001, standing=0)
+        character_2 = EsiContactCharacterFactory(contact_id=1011, standing=0)
+        pook.post(
+            make_esi_url("characters/affiliation"),
+            reply=HTTPStatus.OK,
+            response_json=[
+                {
+                    "character_id": character_1.contact_id,
+                    "corporation_id": corporation.contact_id,
+                },
+                {
+                    "character_id": character_2.contact_id,
+                    "corporation_id": 2011,
+                },
+            ],
+            persist=True,
+        )
+        pook.get(
+            make_esi_url(f"corporations/{corporation.contact_id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "ceo_id": 90000001,
+                "creator_id": 90000001,
+                "member_count": 42,
+                "name": "name",
+                "tax_rate": 0,
+                "ticker": "ticker",
+            },
+            persist=True,
+        )
+        all_contacts = [corporation, character_1, character_2]
+        contacts_1 = EsiContactsContainer.from_esi_contacts(all_contacts)
+        contacts_2 = EsiContactsContainer.from_esi_contacts(all_contacts)
+
+        # when
+        contacts_1.prune(compress=True)
+        contacts_2.prune(compress=False)
+
+        # then
+        got = contacts_1.contacts()
+        want = {corporation, character_1}
+        self.assertSetEqual(got, want)
+        self.assertSetEqual(contacts_2.contacts(), set(all_contacts))
+
+    @pook.on
+    def test_should_remove_neutral_corporations_when_their_alliances_are_not_contacts(
+        self,
+    ):
+        # given
+        alliance = EsiContactAllianceFactory(contact_id=3001, standing=-5)
+        corporation_1 = EsiContactCorporationFactory(contact_id=2001, standing=0)
+        corporation_2 = EsiContactCorporationFactory(contact_id=2002, standing=0)
+        pook.get(
+            make_esi_url(f"corporations/{corporation_1.contact_id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "ceo_id": 90000001,
+                "creator_id": 90000001,
+                "alliance_id": alliance.contact_id,
+                "member_count": 42,
+                "name": "name",
+                "tax_rate": 0,
+                "ticker": "ticker",
+            },
+            persist=True,
+        )
+        pook.get(
+            make_esi_url(f"corporations/{corporation_2.contact_id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "ceo_id": 90000001,
+                "creator_id": 90000001,
+                "member_count": 42,
+                "name": "name",
+                "tax_rate": 0,
+                "ticker": "ticker",
+            },
+            persist=True,
+        )
+        all_contacts = [alliance, corporation_1, corporation_2]
+        contacts_1 = EsiContactsContainer.from_esi_contacts(all_contacts)
+        contacts_2 = EsiContactsContainer.from_esi_contacts(all_contacts)
+
+        # when
+        contacts_1.prune(compress=True)
+        contacts_2.prune(compress=False)
+
+        # then
+        got = contacts_1.contacts()
+
+        want = {alliance, corporation_1}
+        self.assertSetEqual(got, want)
+        self.assertSetEqual(contacts_2.contacts(), set(all_contacts))
+
+    @pook.on
+    def test_should_remove_corporations_when_they_shadow_a_war_target(
+        self,
+    ):
+        # given
+        alliance = EsiContactAllianceFactory(
+            contact_id=3001, standing=-10, is_war_target=True
+        )
+        corporation = EsiContactCorporationFactory(contact_id=2001, standing=0)
+        pook.get(
+            make_esi_url(f"corporations/{corporation.contact_id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "ceo_id": 90000001,
+                "creator_id": 90000001,
+                "alliance_id": alliance.contact_id,
+                "member_count": 42,
+                "name": "name",
+                "tax_rate": 0,
+                "ticker": "ticker",
+            },
+        )
+        contacts = EsiContactsContainer.from_esi_contacts([alliance, corporation])
+
+        # when
+        contacts.prune(compress=True)
+
+        # then
+        got = contacts.contacts()
+
+        want = {alliance}
+        self.assertSetEqual(got, want)
+
+    @pook.on
+    def test_should_remove_characters_when_they_shadow_a_war_target_corporation(
+        self,
+    ):
+        # given
+        corporation = EsiContactCorporationFactory(
+            contact_id=2001, standing=-10, is_war_target=True
+        )
+        character = EsiContactCharacterFactory(standing=5)
+        pook.post(
+            make_esi_url("characters/affiliation"),
+            reply=HTTPStatus.OK,
+            response_json=[
+                {
+                    "character_id": character.contact_id,
+                    "corporation_id": corporation.contact_id,
+                },
+            ],
+        )
+        pook.get(
+            make_esi_url(f"corporations/{corporation.contact_id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "ceo_id": 90000001,
+                "creator_id": 90000001,
+                "member_count": 42,
+                "name": "name",
+                "tax_rate": 0,
+                "ticker": "ticker",
+            },
+        )
+        contacts = EsiContactsContainer.from_esi_contacts([corporation, character])
+
+        # when
+        contacts.prune(compress=True)
+
+        # then
+        got = contacts.contacts()
+        want = {corporation}
+        self.assertSetEqual(got, want)
+
+    @pook.on
+    def test_should_remove_characters_when_they_shadow_a_war_target_alliance(
+        self,
+    ):
+        # given
+        alliance = EsiContactAllianceFactory(
+            contact_id=3001, standing=-10, is_war_target=True
+        )
+        character = EsiContactCharacterFactory(standing=5)
+        pook.post(
+            make_esi_url("characters/affiliation"),
+            reply=HTTPStatus.OK,
+            response_json=[
+                {
+                    "alliance_id": alliance.contact_id,
+                    "character_id": character.contact_id,
+                    "corporation_id": 2001,
+                },
+            ],
+        )
+        contacts = EsiContactsContainer.from_esi_contacts([alliance, character])
+
+        # when
+        contacts.prune(compress=True)
+
+        # then
+        got = contacts.contacts()
+        want = {alliance}
+        self.assertSetEqual(got, want)

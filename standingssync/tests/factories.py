@@ -223,6 +223,17 @@ class EsiContactCorporationFactory(
     standing = factory.fuzzy.FuzzyFloat(-10.0, 10.0)
 
 
+class EsiContactFactionFactory(
+    factory.base.Factory, metaclass=BaseMetaFactory[EsiContact]
+):
+    class Meta:
+        model = EsiContact
+
+    contact_id = factory.Sequence(lambda n: 509_901 + n)
+    contact_type = EsiContact.Category.FACTION
+    standing = factory.fuzzy.FuzzyFloat(-10.0, 10.0)
+
+
 class EsiContactLabelFactory(
     factory.base.Factory, metaclass=BaseMetaFactory[EsiContactLabel]
 ):

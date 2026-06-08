@@ -13,6 +13,7 @@ from app_utils.testing import NoSocketsTestCase
 from standingssync import tasks
 from standingssync.models import SyncManager
 from standingssync.tests.factories import (
+    EveContactFactory,
     EveWarEmptyFactory,
     EveWarFactory,
     SyncedCharacterFactory,
@@ -120,12 +121,11 @@ class TestManagerSync(TestCase):
     ):
         # given
         mock_update_from_esi.side_effect = RuntimeError
-        sync_manager = SyncManagerFactory(user=self.user_manager)
+        sm = SyncManagerFactory(user=self.user_manager)
 
         # when/then
         with self.assertRaises(RuntimeError):
-            tasks.run_manager_sync(sync_manager.pk)
-        # then
+            tasks.run_manager_sync(sm.pk)
 
     @patch(MODELS_PATH + ".SyncManager.run_sync")
     def test_should_normally_run_character_sync(
@@ -133,16 +133,31 @@ class TestManagerSync(TestCase):
     ):
         # given
         mock_update_from_esi.return_value = "abc"
-        sync_manager = SyncManagerFactory(user=self.user_manager)
-        synced_character = SyncedCharacterFactory(manager=sync_manager)
+        sm = SyncManagerFactory(user=self.user_manager)
+        sc = SyncedCharacterFactory(manager=sm)
 
         # when
-        tasks.run_manager_sync(sync_manager.pk)
+        tasks.run_manager_sync(sm.pk)
 
         # then
-        sync_manager.refresh_from_db()
+        sm.refresh_from_db()
         _, kwargs = mock_run_character_sync.apply_async.call_args
-        self.assertEqual(kwargs["kwargs"]["sync_char_pk"], synced_character.pk)
+        self.assertEqual(kwargs["kwargs"]["pk"], sc.pk)
+
+    @patch(MODELS_PATH + ".SyncManager.run_sync")
+    def test_should_abort_when_too_many_contacts(
+        self, mock_update_from_esi, mock_run_character_sync
+    ):
+        # given
+        mock_update_from_esi.return_value = "abc"
+        sm = SyncManagerFactory(user=self.user_manager)
+
+        for _ in range(1025):
+            EveContactFactory(manager=sm)
+
+        # when/then
+        with self.assertRaises(RuntimeError):
+            tasks.run_manager_sync(sm.pk)
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
