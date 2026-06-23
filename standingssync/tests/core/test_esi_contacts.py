@@ -517,7 +517,7 @@ class TestEsiContacts_Prune(NoSocketsTestCase):
         contacts = EsiContactsContainer.from_esi_contacts([alliance])
 
         # when
-        contacts.prune(compress=True)
+        contacts.prune(unmask_war_targets=True, compress_contacts=True)
 
         # then
         got = contacts.contacts()
@@ -533,7 +533,7 @@ class TestEsiContacts_Prune(NoSocketsTestCase):
         contacts = EsiContactsContainer.from_esi_contacts([alliance])
 
         # when
-        contacts.prune(compress=False)
+        contacts.prune(unmask_war_targets=True, compress_contacts=False)
 
         # then
         got = contacts.contacts()
@@ -549,7 +549,7 @@ class TestEsiContacts_Prune(NoSocketsTestCase):
         contacts = EsiContactsContainer.from_esi_contacts([faction])
 
         # when
-        contacts.prune(compress=True)
+        contacts.prune(unmask_war_targets=True, compress_contacts=True)
 
         # then
         got = contacts.contacts()
@@ -565,7 +565,7 @@ class TestEsiContacts_Prune(NoSocketsTestCase):
         contacts = EsiContactsContainer.from_esi_contacts([faction])
 
         # when
-        contacts.prune(compress=False)
+        contacts.prune(unmask_war_targets=True, compress_contacts=False)
 
         # then
         got = contacts.contacts()
@@ -611,7 +611,7 @@ class TestEsiContacts_Prune(NoSocketsTestCase):
         )
 
         # when
-        contacts.prune(compress=True)
+        contacts.prune(unmask_war_targets=True, compress_contacts=True)
 
         # then
         got = contacts.contacts()
@@ -647,7 +647,7 @@ class TestEsiContacts_Prune(NoSocketsTestCase):
         )
 
         # when
-        contacts.prune(compress=True)
+        contacts.prune(unmask_war_targets=True, compress_contacts=True)
 
         # then
         got = contacts.contacts()
@@ -701,8 +701,8 @@ class TestEsiContacts_Prune(NoSocketsTestCase):
         contacts_2 = EsiContactsContainer.from_esi_contacts(all_contacts)
 
         # when
-        contacts_1.prune(compress=True)
-        contacts_2.prune(compress=False)
+        contacts_1.prune(unmask_war_targets=True, compress_contacts=True)
+        contacts_2.prune(unmask_war_targets=True, compress_contacts=False)
 
         # then
         got = contacts_1.contacts()
@@ -751,8 +751,8 @@ class TestEsiContacts_Prune(NoSocketsTestCase):
         contacts_2 = EsiContactsContainer.from_esi_contacts(all_contacts)
 
         # when
-        contacts_1.prune(compress=True)
-        contacts_2.prune(compress=False)
+        contacts_1.prune(unmask_war_targets=True, compress_contacts=True)
+        contacts_2.prune(unmask_war_targets=True, compress_contacts=False)
 
         # then
         got = contacts_1.contacts()
@@ -800,8 +800,8 @@ class TestEsiContacts_Prune(NoSocketsTestCase):
         contacts_2 = EsiContactsContainer.from_esi_contacts(all_contacts)
 
         # when
-        contacts_1.prune(compress=True)
-        contacts_2.prune(compress=False)
+        contacts_1.prune(unmask_war_targets=True, compress_contacts=True)
+        contacts_2.prune(unmask_war_targets=True, compress_contacts=False)
 
         # then
         got = contacts_1.contacts()
@@ -835,12 +835,45 @@ class TestEsiContacts_Prune(NoSocketsTestCase):
         contacts = EsiContactsContainer.from_esi_contacts([alliance, corporation])
 
         # when
-        contacts.prune(compress=True)
+        contacts.prune(unmask_war_targets=True, compress_contacts=True)
 
         # then
         got = contacts.contacts()
 
         want = {alliance}
+        self.assertSetEqual(got, want)
+
+    @pook.on
+    def test_should_not_remove_corporations_when_they_shadow_a_war_target(
+        self,
+    ):
+        # given
+        alliance = EsiContactAllianceFactory(
+            contact_id=3001, standing=-10, is_war_target=True
+        )
+        corporation = EsiContactCorporationFactory(contact_id=2001, standing=0)
+        pook.get(
+            make_esi_url(f"corporations/{corporation.contact_id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "ceo_id": 90000001,
+                "creator_id": 90000001,
+                "alliance_id": alliance.contact_id,
+                "member_count": 42,
+                "name": "name",
+                "tax_rate": 0,
+                "ticker": "ticker",
+            },
+        )
+        contacts = EsiContactsContainer.from_esi_contacts([alliance, corporation])
+
+        # when
+        contacts.prune(unmask_war_targets=False, compress_contacts=True)
+
+        # then
+        got = contacts.contacts()
+
+        want = {alliance, corporation}
         self.assertSetEqual(got, want)
 
     @pook.on
@@ -877,11 +910,52 @@ class TestEsiContacts_Prune(NoSocketsTestCase):
         contacts = EsiContactsContainer.from_esi_contacts([corporation, character])
 
         # when
-        contacts.prune(compress=True)
+        contacts.prune(unmask_war_targets=True, compress_contacts=True)
 
         # then
         got = contacts.contacts()
         want = {corporation}
+        self.assertSetEqual(got, want)
+
+    @pook.on
+    def test_should_not_remove_characters_when_they_shadow_a_war_target_corporation(
+        self,
+    ):
+        # given
+        corporation = EsiContactCorporationFactory(
+            contact_id=2001, standing=-10, is_war_target=True
+        )
+        character = EsiContactCharacterFactory(standing=5)
+        pook.post(
+            make_esi_url("characters/affiliation"),
+            reply=HTTPStatus.OK,
+            response_json=[
+                {
+                    "character_id": character.contact_id,
+                    "corporation_id": corporation.contact_id,
+                },
+            ],
+        )
+        pook.get(
+            make_esi_url(f"corporations/{corporation.contact_id}"),
+            reply=HTTPStatus.OK,
+            response_json={
+                "ceo_id": 90000001,
+                "creator_id": 90000001,
+                "member_count": 42,
+                "name": "name",
+                "tax_rate": 0,
+                "ticker": "ticker",
+            },
+        )
+        contacts = EsiContactsContainer.from_esi_contacts([corporation, character])
+
+        # when
+        contacts.prune(unmask_war_targets=False, compress_contacts=True)
+
+        # then
+        got = contacts.contacts()
+        want = {corporation, character}
         self.assertSetEqual(got, want)
 
     @pook.on
@@ -907,9 +981,39 @@ class TestEsiContacts_Prune(NoSocketsTestCase):
         contacts = EsiContactsContainer.from_esi_contacts([alliance, character])
 
         # when
-        contacts.prune(compress=True)
+        contacts.prune(unmask_war_targets=True, compress_contacts=True)
 
         # then
         got = contacts.contacts()
         want = {alliance}
+        self.assertSetEqual(got, want)
+
+    @pook.on
+    def test_should_not_remove_characters_when_they_shadow_a_war_target_alliance(
+        self,
+    ):
+        # given
+        alliance = EsiContactAllianceFactory(
+            contact_id=3001, standing=-10, is_war_target=True
+        )
+        character = EsiContactCharacterFactory(standing=5)
+        pook.post(
+            make_esi_url("characters/affiliation"),
+            reply=HTTPStatus.OK,
+            response_json=[
+                {
+                    "alliance_id": alliance.contact_id,
+                    "character_id": character.contact_id,
+                    "corporation_id": 2001,
+                },
+            ],
+        )
+        contacts = EsiContactsContainer.from_esi_contacts([alliance, character])
+
+        # when
+        contacts.prune(unmask_war_targets=False, compress_contacts=True)
+
+        # then
+        got = contacts.contacts()
+        want = {alliance, character}
         self.assertSetEqual(got, want)

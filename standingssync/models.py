@@ -83,21 +83,28 @@ class SyncManager(_SyncBaseModel):
     compress_contacts = models.BooleanField(
         default=False,
         help_text=(
-            "Removes contacts which are unnecessary for calculating "
+            "Remove contacts which are unnecessary for calculating "
             "their effective standing."
         ),
     )
     exclude_character_contacts = models.BooleanField(
         default=False,
-        help_text="Excludes all character contacts",
+        help_text="Exclude all character contacts",
     )
     exclude_negative_standings = models.BooleanField(
         default=False,
-        help_text="Excludes all contacts with negative standing",
+        help_text="Exclude all contacts with negative standing",
     )
     exclude_positive_standings = models.BooleanField(
         default=False,
-        help_text="Excludes all contacts with positive standing",
+        help_text="Exclude all contacts with positive standing",
+    )
+    unmask_war_targets = models.BooleanField(
+        default=False,
+        help_text=(
+            "Remove contacts which would mask the effective standing of "
+            "war target contacts"
+        ),
     )
 
     objects = SyncManagerManager()
@@ -179,8 +186,12 @@ class SyncManager(_SyncBaseModel):
         contacts = EsiContactsContainer.from_esi_contacts(esi_contacts)
         war_target_ids = self._add_war_targets(contacts)
 
-        if self.compress_contacts or STANDINGSSYNC_ADD_WAR_TARGETS:
-            removed_count = contacts.prune(compress=self.compress_contacts)
+        unmask_war_targets = STANDINGSSYNC_ADD_WAR_TARGETS and self.unmask_war_targets
+        if self.compress_contacts or unmask_war_targets:
+            removed_count = contacts.prune(
+                unmask_war_targets=unmask_war_targets,
+                compress_contacts=self.compress_contacts,
+            )
             logger.info("%s: Pruned contacts. Removed %d", self, removed_count)
 
         new_version_hash = contacts.version_hash()
