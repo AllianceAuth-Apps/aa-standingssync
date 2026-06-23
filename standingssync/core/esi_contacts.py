@@ -283,14 +283,15 @@ class EsiContactsContainer:
         """Fetch all labels."""
         return set(self._labels.values())
 
-    def prune(self, compress=False) -> int:
+    def prune(self, unmask_war_targets=True, compress_contacts=False) -> int:
         """Prune contacts.
 
-        Prune will remove contacts shadowing the standing of war targets:
+        When unmask_war_targets is True, prune will remove contacts shadowing
+        the standing of war targets:
         - characters belonging to a war target with different standings
         - corporations belonging to a war target with different standings
 
-        When compress is True, prune will also remove contacts
+        When compress_contacts is True, prune will also remove contacts
         which are unnecessary to calculate their effective standing:
         - faction contacts
         - characters and when their alliances exist as contact and has same standing
@@ -340,7 +341,7 @@ class EsiContactsContainer:
             corporations[corporation_id].alliance_id = info.alliance_id
 
         # remove alliances
-        if compress:
+        if compress_contacts:
             for alliance_id in list(alliances.keys()):
                 obj = alliances[alliance_id]
                 if obj.standing == 0:
@@ -356,15 +357,15 @@ class EsiContactsContainer:
                 except KeyError:
                     pass
 
-            if alliance and alliance.is_war_target:
+            if unmask_war_targets and alliance and alliance.is_war_target:
                 del corporations[corporation_id]
                 continue
 
-            if compress and alliance and alliance.standing == obj.standing:
+            if compress_contacts and alliance and alliance.standing == obj.standing:
                 del corporations[corporation_id]
                 continue
 
-            if compress and obj.standing == 0 and not alliance:
+            if compress_contacts and obj.standing == 0 and not alliance:
                 del corporations[corporation_id]
                 continue
 
@@ -376,11 +377,15 @@ class EsiContactsContainer:
             except KeyError:
                 corporation = None
 
-            if corporation and corporation.is_war_target:
+            if unmask_war_targets and corporation and corporation.is_war_target:
                 del characters[character_id]
                 continue
 
-            if compress and corporation and corporation.standing == obj.standing:
+            if (
+                compress_contacts
+                and corporation
+                and corporation.standing == obj.standing
+            ):
                 del characters[character_id]
                 continue
 
@@ -391,21 +396,26 @@ class EsiContactsContainer:
                 except KeyError:
                     pass
 
-            if alliance and alliance.is_war_target:
+            if unmask_war_targets and alliance and alliance.is_war_target:
                 del characters[character_id]
                 continue
 
-            if compress and alliance and alliance.standing == obj.standing:
+            if compress_contacts and alliance and alliance.standing == obj.standing:
                 del characters[character_id]
                 continue
 
-            if compress and obj.standing == 0 and not corporation and not alliance:
+            if (
+                compress_contacts
+                and obj.standing == 0
+                and not corporation
+                and not alliance
+            ):
                 del characters[character_id]
                 continue
 
         # updated contacts
         remaining_ids = characters.keys() | corporations.keys() | alliances.keys()
-        if not compress:
+        if not compress_contacts:
             remaining_ids |= {
                 x.contact_id
                 for x in self.contacts()

@@ -126,7 +126,7 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         sm = SyncManagerFactory(user=self.user)
 
         # when
-        with (patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),):
+        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False):
             sm.run_sync()
 
         # then
@@ -161,7 +161,7 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         sm = SyncManagerFactory(user=self.user)
 
         # when
-        with (patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),):
+        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False):
             sm.run_sync()
             got = sm.run_sync()
 
@@ -176,7 +176,7 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         sm = SyncManagerFactory(user=self.user)
 
         # when
-        with (patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),):
+        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False):
             sm.run_sync()
             got = sm.run_sync(force_update=True)
 
@@ -192,7 +192,7 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         mock_esi_api.fetch_alliance_contacts.return_value = [contact]
 
         # when
-        with (patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False),):
+        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False):
             sm.run_sync()
 
         # then
@@ -240,7 +240,7 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         EveWarFactory()  # should be ignored
 
         # when
-        with (patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),):
+        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
             sm.run_sync()
 
         # then
@@ -266,7 +266,7 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         EveWarFactory()  # should be ignored
 
         # when
-        with (patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),):
+        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
             sm.run_sync()
 
         # then
@@ -288,7 +288,7 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         EveWarFactory()  # should be ignored
 
         # when
-        with (patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),):
+        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
             sm.run_sync()
 
         # then
@@ -314,7 +314,7 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         EveWarFactory()  # should be ignored
 
         # when
-        with (patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True),):
+        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
             sm.run_sync()
 
         # then
@@ -347,6 +347,97 @@ class TestSyncManager_RunSync(NoSocketsTestCase):
         # when/then
         with self.assertRaises(RuntimeError):
             sync_manager.run_sync()
+
+    def test_should_call_prune_when_required(self, mock_esi_api):
+        # given
+        mock_esi_api.fetch_alliance_contacts.return_value = []
+
+        class Case(NamedTuple):
+            compress_contacts: bool
+            unmask_war_targets: bool
+            add_wt: bool
+            want_called: bool
+            want_unmask_war_targets: bool = None
+
+        cases = [
+            Case(
+                compress_contacts=False,
+                unmask_war_targets=False,
+                add_wt=False,
+                want_called=False,
+            ),
+            Case(
+                compress_contacts=False,
+                unmask_war_targets=False,
+                add_wt=True,
+                want_called=False,
+            ),
+            Case(
+                compress_contacts=False,
+                unmask_war_targets=True,
+                add_wt=False,
+                want_called=False,
+            ),
+            Case(
+                compress_contacts=False,
+                unmask_war_targets=True,
+                add_wt=True,
+                want_called=True,
+                want_unmask_war_targets=True,
+            ),
+            Case(
+                compress_contacts=True,
+                unmask_war_targets=False,
+                add_wt=False,
+                want_called=True,
+                want_unmask_war_targets=False,
+            ),
+            Case(
+                compress_contacts=True,
+                unmask_war_targets=False,
+                add_wt=True,
+                want_called=True,
+                want_unmask_war_targets=False,
+            ),
+            Case(
+                compress_contacts=True,
+                unmask_war_targets=True,
+                add_wt=False,
+                want_called=True,
+                want_unmask_war_targets=False,
+            ),
+            Case(
+                compress_contacts=True,
+                unmask_war_targets=True,
+                add_wt=True,
+                want_called=True,
+                want_unmask_war_targets=True,
+            ),
+        ]
+
+        # when
+        for i, tc in enumerate(cases, start=1):
+            # with self.subTest(i=i):
+            with (
+                patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", tc.add_wt),
+                patch(MODELS_PATH + ".EsiContactsContainer.prune") as mock_prune,
+            ):
+                sm = SyncManagerFactory(
+                    unmask_war_targets=tc.unmask_war_targets,
+                    compress_contacts=tc.compress_contacts,
+                )
+                sm.run_sync()
+
+                # then
+                self.assertEqual(mock_prune.called, tc.want_called)
+                if not tc.want_called:
+                    continue
+
+                _, kwargs = mock_prune.call_args
+                self.assertEqual(kwargs["compress_contacts"], tc.compress_contacts)
+                self.assertEqual(
+                    kwargs["unmask_war_targets"], tc.want_unmask_war_targets
+                )
 
 
 @patch(MODELS_PATH + ".esi_api")
