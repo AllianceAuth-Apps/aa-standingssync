@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
+## [3.0.0b3] - 2026-06-23
+
+### Changed
+
+- Feature for unmasking war targets is now an option of the sync manager and and disabled by default (which restores the behavior in 1.x). The option can be configured on the admin site.
+
 ## [3.0.0b2] - 2026-06-08
 
 ### Added

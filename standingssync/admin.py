@@ -254,6 +254,7 @@ class SyncManagerAdmin(admin.ModelAdmin):
                     "exclude_character_contacts",
                     "exclude_negative_standings",
                     "exclude_positive_standings",
+                    "unmask_war_targets",
                 ),
                 "description": (
                     "Changes to filters will be applied at the next sync. "
@@ -299,11 +300,15 @@ class SyncManagerAdmin(admin.ModelAdmin):
             "exclude_character_contacts",
             "exclude_negative_standings",
             "exclude_positive_standings",
+            "unmask_war_targets",
         ]
         parts = []
         for n in names:
             value = getattr(obj, n)
-            parts.append(f"{n} = {value}")
+            name_display = n.replace("_", " ")
+            value_display = "<b>enabled</b>" if value else "disabled"
+            parts.append(f"{name_display}: {value_display}")
+
         return format_html("<br>".join(parts))
 
     @admin.display(description="Characters")

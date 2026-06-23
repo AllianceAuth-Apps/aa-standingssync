@@ -104,16 +104,6 @@ class TestTasksE2E(TestCaseWithClearCache):
         EveWarFactory(
             aggressor=aggressor, defender=EveEntityAllianceFactory(id=alliance_id)
         )
-        pook.post(
-            make_esi_url("characters/affiliation"),
-            reply=HTTPStatus.OK,
-            response_json=[
-                {
-                    "character_id": contact_1_id,
-                    "corporation_id": 2011,
-                },
-            ],
-        )
         pook.get(
             make_esi_url(f"alliances/{alliance_id}/contacts"),
             reply=HTTPStatus.OK,
