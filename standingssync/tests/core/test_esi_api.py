@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import pook
 
+from esi.exceptions import HTTPClientError
 from eveuniverse.tests.testdata.factories_2 import EveEntityCharacterFactory
 
 from app_utils.testing import NoSocketsTestCase
@@ -52,6 +53,23 @@ class TestEsiApi(TestCaseWithClearCache):
             EsiContact(alliance_id, EsiContact.Category.ALLIANCE, 10),
         }
         self.assertSetEqual(expected, result)
+
+    @pook.on
+    def test_should_abort_when_error_returned_from_fetch_alliance_contacts(self):
+        # given
+        user = UserMainManagerFactory()
+        alliance_id = user.profile.main_character.alliance_id
+        token = user.token_set.first()
+        EveEntityCharacterFactory
+        pook.get(
+            make_esi_url(f"alliances/{alliance_id}/contacts"),
+            reply=HTTPStatus.NOT_FOUND,
+            response_json={"error": "some error"},
+        )
+
+        # when
+        with self.assertRaises(HTTPClientError):
+            esi_api.fetch_alliance_contacts(alliance_id=alliance_id, token=token)
 
     @pook.on
     def test_should_fetch_character_contacts(self):

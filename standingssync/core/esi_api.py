@@ -3,6 +3,7 @@
 from collections import defaultdict
 from typing import Callable, Dict, FrozenSet, Iterable, Optional, Set
 
+from esi.exceptions import HTTPError
 from esi.models import Token
 
 from allianceauth.services.hooks import get_extension_logger
@@ -49,9 +50,13 @@ def delete_character_contacts(token: Token, contacts: Iterable[EsiContact]):
 
 def fetch_alliance_contacts(alliance_id: int, token: Token) -> Set[EsiContact]:
     """Fetch alliance contacts from ESI."""
-    contacts_raw = esi.client.Contacts.GetAlliancesAllianceIdContacts(
-        token=token, alliance_id=alliance_id
-    ).results(use_etag=False)
+    try:
+        contacts_raw = esi.client.Contacts.GetAlliancesAllianceIdContacts(
+            token=token, alliance_id=alliance_id
+        ).results(use_etag=False)
+    except HTTPError as ex:
+        logger.error("GetAlliancesAllianceIdContacts failed: %s", ex)
+        raise ex
     contacts = {
         row.contact_id: EsiContact.from_esi_dict(row.model_dump())
         for row in contacts_raw
@@ -61,6 +66,9 @@ def fetch_alliance_contacts(alliance_id: int, token: Token) -> Set[EsiContact]:
         contact_id=alliance_id,
         contact_type=EsiContact.Category.ALLIANCE,
         standing=10,
+    )
+    logger.info(
+        "%s: Received %d alliance contacts from ESI", alliance_id, len(contacts)
     )
     return set(contacts.values())
 
@@ -75,11 +83,14 @@ def fetch_character_contacts(token: Token) -> Set[EsiContact]:
         token.character_name,
         len(character_contacts_raw),
     )
-    character_contacts = {
+    contacts = {
         EsiContact.from_esi_dict(contact.model_dump())
         for contact in character_contacts_raw
     }
-    return character_contacts
+    logger.info(
+        "%s: Received %d character contacts from ESI", token.character_id, len(contacts)
+    )
+    return contacts
 
 
 def fetch_character_contact_labels(token: Token) -> Set[EsiContactLabel]:
@@ -89,6 +100,9 @@ def fetch_character_contact_labels(token: Token) -> Set[EsiContactLabel]:
     ).result(use_etag=False)
     logger.info("%s: Fetched %d current labels", token.character_name, len(labels_raw))
     labels = {EsiContactLabel.from_esi_dict(label.model_dump()) for label in labels_raw}
+    logger.info(
+        "%s: Received %d character labels from ESI", token.character_id, len(labels)
+    )
     return labels
 
 
