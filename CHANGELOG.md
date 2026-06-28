@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
+## [3.0.0] - 2026-06-28
+
+This release adds support for Alliance Auth V5, new features and contains breaking changes.
+
+### Update notes
+
+If you updating from a previous version please also update the periodic tasks configuration in your local settings.
+This does not change the frequency of updates, but reduces potential load peaks on FC's servers, which can be caused by many installations making the same requests to FC's servers at the same time.
+The new configuration is:
+
+```python
+CELERYBEAT_SCHEDULE['standingssync.run_regular_sync'] = {
+    'task': 'standingssync.tasks.run_regular_sync',
+    'schedule': 7200
+}
+```
+
+### Added
+
+- Will abort sync attempt with error and show error message when the number of contacts to sync exceeds the limit for character contacts (=1024)
+- Added optional filters to help reduce the number of contacts to stay below the limit for characters. The filters can be configured per sync manager on the admin site:
+  - Compress contacts: Removes contacts which are unnecessary for calculating their effective standing.
+  - Exclude characters: Excludes all character contacts
+  - Exclude negative standings: Excludes all contacts with negative standing
+  - Exclude positive standings: Excludes all contacts with positive standing
+  - Unmask war targets: Remove contacts that would mask the standing of war targets
+
+### Changed
+
+- BREAKING CHANGE: Now requires Python 3.10
+- Added support for AA 5
+- Removed logger tag
+- Migrated ESI client to OpenAPI
+- Reworked logic for fetching wars to accommodate rate limit constraints
+- Modernized test suite
+
 ## [3.0.0b3] - 2026-06-23
 
 ### Changed
