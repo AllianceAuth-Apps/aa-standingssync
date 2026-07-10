@@ -34,7 +34,7 @@ dependencies = [
 test = ["coverage", "factory_boy", "pook"]
 
 [project.urls]
-Homepage = "https://gitlab.com/ErikKalkoken/aa-standingssync"
+Homepage = "https://github.com/AllianceAuth-Apps/aa-standingssync"
 
 [tool.flit.module]
 name = "standingssync"
