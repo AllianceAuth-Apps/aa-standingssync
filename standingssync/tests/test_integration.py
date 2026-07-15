@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pook
 
-from django.test import TestCase, override_settings
+from django.test import override_settings
 from django.utils.timezone import now
 from eveuniverse.tests.testdata.factories_2 import (
     EveEntityAllianceFactory,
@@ -12,10 +12,12 @@ from eveuniverse.tests.testdata.factories_2 import (
 )
 
 from allianceauth.eveonline.models import EveAllianceInfo
+from app_utils.testing import NoSocketsTestCase
 
 from standingssync import tasks
 from standingssync.models import EveWar
 from standingssync.tests.factories import (
+    EveContactFactory,
     EveWarFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
@@ -307,13 +309,15 @@ class TestTasksE2E(TestCaseWithClearCache):
         self.assertEqual(got, want)
 
 
-class TestUI(TestCase):
+class TestUI(NoSocketsTestCase):
     def test_should_open_main_page_wo_syn_manager(self):
         # given
         user = UserMainDefaultFactory()
         self.client.force_login(user)
+
         # when
         response = self.client.get("/standingssync/characters")
+
         # then
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
@@ -324,12 +328,18 @@ class TestUI(TestCase):
             alliance_id=user.profile.main_character.alliance_id
         )
         sync_manager = SyncManagerFactory(alliance=alliance)
+        EveContactFactory(manager=sync_manager)
+
         SyncedCharacterFactory(manager=sync_manager)
         self.client.force_login(user)
+
         # when
         response = self.client.get("/standingssync/characters")
+
         # then
         self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertContains(response, alliance.alliance_name)
+        self.assertContains(response, "1 contacts")
 
     def test_should_open_wars_page_w_sync_manager(self):
         # given
@@ -340,8 +350,10 @@ class TestUI(TestCase):
         sync_manager = SyncManagerFactory(alliance=alliance)
         SyncedCharacterFactory(manager=sync_manager)
         self.client.force_login(user)
+
         # when
         response = self.client.get("/standingssync/wars")
+
         # then
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
@@ -349,7 +361,9 @@ class TestUI(TestCase):
         # given
         user = UserMainDefaultFactory()
         self.client.force_login(user)
+
         # when
         response = self.client.get("/standingssync/wars")
+
         # then
         self.assertEqual(response.status_code, HTTPStatus.OK)
