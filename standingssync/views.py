@@ -33,6 +33,7 @@ def common_context(ctx: dict) -> dict:
         "page_title": "PLACEHOLDER",
         "DATEFORMAT": MY_DATETIME_FORMAT,
         "STANDINGSSYNC_ADD_WAR_TARGETS": STANDINGSSYNC_ADD_WAR_TARGETS,
+        "STANDINGSSYNC_REPLACE_CONTACTS": STANDINGSSYNC_REPLACE_CONTACTS,
     }
     result.update(ctx)
     return result
@@ -62,8 +63,10 @@ def characters(request):
                 organization += f" [{character.alliance_ticker}]"
 
             errors = []
+            if not STANDINGSSYNC_ADD_WAR_TARGETS and not STANDINGSSYNC_REPLACE_CONTACTS:
+                errors.append("No sync feature enabled")
             if not synced_character.is_sync_fresh:
-                errors.append("Sync is outdated.")
+                errors.append("Sync is outdated")
             if (
                 STANDINGSSYNC_ADD_WAR_TARGETS
                 and synced_character.has_war_targets_label is False

@@ -13,13 +13,13 @@
                 {{ alliance.alliance_name }}
                 &nbsp;
                 (
-                {% if alliance_contacts_count != None %}
+                {% if STANDINGSSYNC_REPLACE_CONTACTS %}
                     {{ alliance_contacts_count }} contacts
-                    {% if alliance_war_targets_count != None %}
+                    {% if STANDINGSSYNC_ADD_WAR_TARGETS %}
                         ,
                     {% endif %}
                 {% endif %}
-                {% if alliance_war_targets_count != None %}
+                {% if STANDINGSSYNC_ADD_WAR_TARGETS %}
                     {{ alliance_war_targets_count }} war targets
                 {% endif %}
                 )
@@ -106,21 +106,29 @@
     <div class="bs-callout bs-callout-warning">
         <h3>Read Me First</h3>
         <p>Once activated this app will automatically update the personal contacts of your synced characters. Note that you can only sync out-of-alliance alts.</p>
-        {% if alliance_contacts_count != None %}
-            <h4>Alliance Contacts</h4>
+
+        <h4>Alliance Contacts</h4>
+        {% if STANDINGSSYNC_REPLACE_CONTACTS %}
             <p>
                 All personal contacts will be replaced with alliance contacts allowing you to see alliance standings on your synced characters.
             </p>
-            <p>
-                <i class="fas fa-exclamation-triangle"></i> You will loose all personal contacts on your synced characters.
+            <p class="text-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                You will loose all personal contacts on your synced characters.
             </p>
+        {% else %}
+            <p class="text-secondary">Feature disabled</p>
         {% endif %}
-        {% if alliance_war_targets_count != None %}
-            <h4>War Targets</h4>
+
+        <h4>War Targets</h4>
+        {% if STANDINGSSYNC_ADD_WAR_TARGETS %}
             <p>Adds current alliance war targets as personal contacts with -10 standing a personal contact to your synced characters. If the contact already exists it will be overwritten. War targets can be distinguished by having the war targets contact label.</p>
-            <p><i class="fas fa-info-circle"></i>
+            <p class="text-info">
+                <i class="fas fa-info-circle"></i>
                 Please make sure to create a contact label with the name "{{ war_targets_label_name }}" on all your synced characters.
             </p>
+        {% else %}
+            <p class="text-secondary">Feature disabled</p>
         {% endif %}
     </div>
 

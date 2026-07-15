@@ -16,14 +16,11 @@ Alliance Auth app for cloning alliance standings and war targets to alts.
 
 - [Features](#features)
 - [Screenshot](#screenshot)
-- [How it works](#how-it-works)
 - [Installation](#installation)
 - [Updating](#updating)
 - [Settings](#settings)
 - [Permissions](#permissions)
 - [Admin Functions](#admin-functions)
-- [Feedback](#feedback)
-- [Change Log](CHANGELOG.md)
 
 ## Features
 
@@ -31,20 +28,17 @@ The main purpose of this app is to enable non-alliance characters to have the sa
 
 Here is an high level overview of the main features:
 
-- Synchronize alliance contacts to chosen non-alliance characters
+- Synchronize alliance contacts to non-alliance characters
+- Synchronize war targets to non-alliance characters
 - Supports coalition usage with multiple alliances in the same Alliance Auth installation
-- Synchronize alliance war targets as contacts with terrible standing
 - Automatically deactivates synchronization when a user ceases to be eligible (e.g. main left the alliance)
+- Ability to filter which alliance contacts are synchronized to stay below the 1000 personal contact limit
 
 ## Screenshot
 
 Here is a screenshot of the main screen.
 
 ![Main Screen](https://i.imgur.com/xGdoqsp.png)
-
-## How it works
-
-To enable non-alliance members to use alliance standings the personal contact of that character are replaced with the alliance contacts.
 
 ## Installation
 
@@ -141,9 +135,9 @@ Here is a list of available settings for this app. They can be configured by add
 
 Name|Description|Default
 --|--|--
-`STANDINGSSYNC_ADD_WAR_TARGETS`|When enabled will automatically add or set war targets  with standing = -10 to synced characters.  Note that for this to work a character also needs to have created  a custom label with the correct name.  See also `STANDINGSSYNC_WAR_TARGETS_LABEL_NAME`.|`False`
+`STANDINGSSYNC_ADD_WAR_TARGETS`|When enabled the app will add or set war targets with standing = -10 to synced characters. Note that for this to work a character also needs to have created a custom label with the correct name. This feature can be used together with `STANDINGSSYNC_REPLACE_CONTACTS`. See also `STANDINGSSYNC_WAR_TARGETS_LABEL_NAME`.|`False`
 `STANDINGSSYNC_CHAR_MIN_STANDING`|Minimum standing a character needs to have in order to get alliance contacts. Any char with a standing smaller than this value will be rejected. Set to `0.0` if you want to allow neutral alts to sync.|`0.1`
-`STANDINGSSYNC_REPLACE_CONTACTS`|When enabled will replace contacts of synced characters with alliance contacts.|`True`
+`STANDINGSSYNC_REPLACE_CONTACTS`|When enabled the app will replace all contacts of synced characters with alliance contacts. When not enabled the app will not sync alliance contacts. This feature can be used together with `STANDINGSSYNC_ADD_WAR_TARGETS`.|`True`
 `STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED`|Wether to store contacts received from ESI to disk. This is for debugging.|`False`
 `STANDINGSSYNC_SYNC_TIMEOUT`|Duration in minutes after which a delayed sync for managers and characters is reported as down. This value should be aligned with the frequency of the sync task.|`180`
 `STANDINGSSYNC_WAR_TARGETS_LABEL_NAME`|Name of EVE contact label for war targets. Needs to be created by the user for each synced character. Required to ensure that war targets are deleted once they become invalid. Not case sensitive.|`WAR TARGETS`
@@ -168,7 +162,3 @@ Admins will find a "Standings Sync" section on the admin page. This section prov
 - Manually remove characters / alliances from sync
 
 - Manually start the sync process for characters / alliances
-
-## Feedback
-
-If you encounter any bugs or would like to request a new feature please open an issue in this gitlab repo.
