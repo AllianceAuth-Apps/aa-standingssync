@@ -3,11 +3,12 @@
 from app_utils.app_settings import clean_setting
 
 STANDINGSSYNC_ADD_WAR_TARGETS = clean_setting("STANDINGSSYNC_ADD_WAR_TARGETS", False)
-"""When enabled will automatically add or set war targets
- with standing = -10 to synced characters.
- Note that for this to work a character also needs to have created
- a custom label with the correct name.
- See also `STANDINGSSYNC_WAR_TARGETS_LABEL_NAME`.
+"""When enabled the app will add or set war targets with standing = -10
+to synced characters.
+Note that for this to work a character also needs to have created
+a custom label with the correct name.
+This feature can be used together with `STANDINGSSYNC_REPLACE_CONTACTS`.
+See also `STANDINGSSYNC_WAR_TARGETS_LABEL_NAME`.
 """
 
 STANDINGSSYNC_CHAR_MIN_STANDING = clean_setting(
@@ -24,7 +25,11 @@ STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED = clean_setting(
 """Wether to store contacts received from ESI to disk. This is for debugging."""
 
 STANDINGSSYNC_REPLACE_CONTACTS = clean_setting("STANDINGSSYNC_REPLACE_CONTACTS", True)
-"""When enabled will replace contacts of synced characters with alliance contacts."""
+"""When enabled the app will replace all contacts of synced characters
+with alliance contacts.
+When not enabled the app will not sync alliance contacts.
+This feature can be used together with `STANDINGSSYNC_ADD_WAR_TARGETS`.
+"""
 
 STANDINGSSYNC_SYNC_TIMEOUT = clean_setting("STANDINGSSYNC_SYNC_TIMEOUT", 180)  # 3 hours
 """Duration in minutes after which a delayed sync for managers and characters
