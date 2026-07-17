@@ -1,9 +1,17 @@
+# This makefile provides tools for developers.
+#
+# Note that it requires you to have a .env file defined with the path to your manage.py file
+# The syntax is: MANAGE_PY_PATH = /path/to/manage.py
+
+-include .env
+export
+
 appname = aa-standingssync
 package = standingssync
-myauth_path = ../myauth/manage.py
 
 help:
 	@echo "Makefile for $(appname)"
+
 makemessages:
 	cd $(package) && \
 	django-admin makemessages \
@@ -41,8 +49,10 @@ compilemessages:
 		-l zh_Hans
 
 coverage:
-	# coverage run $(myauth_path) test $(package).tests --keepdb --failfast -v 2 && coverage html && coverage report -m
-	coverage run --concurrency=multiprocessing $(myauth_path) test $(package).tests --keepdb --failfast --timing --parallel && coverage combine && coverage html && coverage report -m
+	coverage run $(MANAGE_PY_PATH) test $(package) --keepdb --failfast && coverage html && coverage report -m
+
+pylint:
+	pylint --load-plugins pylint_django $(package)
 
 graph_models:
-	python $(myauth_path) graph_models $(package) --arrow-shape normal -o $(appname)_models.png
+	python $(MANAGE_PY_PATH) graph_models $(package) --arrow-shape normal -o $(appname)_models.png
