@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404, redirect, render
 from esi.decorators import token_required
+from esi.models import Token
 
 from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter
@@ -122,7 +123,7 @@ def characters(request):
 @login_required
 @permission_required("standingssync.add_syncmanager")
 @token_required(SyncManager.get_esi_scopes())  # type: ignore
-def add_alliance_manager(request, token):
+def add_alliance_manager(request, token: Token):
     """Add or update sync manager for an alliance."""
     token_char = get_object_or_404(EveCharacter, character_id=token.character_id)
     if not token_char.alliance_id:
@@ -157,14 +158,14 @@ def add_alliance_manager(request, token):
 @login_required
 @permission_required("standingssync.add_syncedcharacter")
 @token_required(scopes=SyncedCharacter.get_esi_scopes())  # type: ignore
-def add_character(request, token):
+def add_character(request, token: Token):
     """add character to receive alliance contacts"""
     alliance = get_object_or_404(
         EveAllianceInfo, alliance_id=request.user.profile.main_character.alliance_id
     )
     sync_manager = get_object_or_404(SyncManager, alliance=alliance)
     token_char = get_object_or_404(EveCharacter, character_id=token.character_id)
-    if token_char.alliance_id == sync_manager.character.alliance_id:
+    if token_char.alliance_id == sync_manager.alliance.alliance_id:
         messages.warning(
             request,
             "Adding alliance members does not make much sense, "
