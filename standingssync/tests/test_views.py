@@ -1,3 +1,4 @@
+from http import HTTPStatus
 from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
@@ -53,20 +54,20 @@ class TestMainScreen(TestCase):
         # when
         response = views.index(request)
         # then
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
         self.assertEqual(response.url, reverse("standingssync:characters"))
 
     def test_user_with_permission_can_open_app(self):
         request = self.factory.get(reverse("standingssync:characters"))
         request.user = self.user_normal
         response = views.characters(request)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_user_wo_permission_can_not_open_app(self):
         request = self.factory.get(reverse("standingssync:characters"))
         request.user = self.user_no_permission
         response = views.characters(request)
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
 
     @patch(MODULE_PATH + ".messages")
     def test_user_can_remove_sync_char(self, mock_messages):
@@ -75,7 +76,7 @@ class TestMainScreen(TestCase):
         )
         request.user = self.user_normal
         response = views.remove_character(request, self.sync_char.pk)
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
         self.assertTrue(mock_messages.success.called)
         self.assertFalse(SyncedCharacter.objects.filter(pk=self.sync_char.pk).exists())
 
@@ -123,7 +124,7 @@ class TestAddSyncChar(NoSocketsTestCase):
         response = self.make_request(self.user_normal, alt_character)
 
         # then
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
         self.assertEqual(response.url, reverse("standingssync:characters"))
         self.assertTrue(mock_messages.success.called)
         self.assertTrue(mock_run_character_sync.delay.called)
@@ -141,7 +142,7 @@ class TestAddSyncChar(NoSocketsTestCase):
             response = self.make_request(self.user_normal, self.character_normal)
 
         # then
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
         self.assertEqual(response.url, reverse("standingssync:characters"))
         self.assertTrue(mock_messages.warning.called)
         self.assertFalse(mock_run_character_sync.delay.called)
@@ -157,7 +158,7 @@ class TestAddSyncChar(NoSocketsTestCase):
             response = self.make_request(self.user_normal, alt_character)
 
         # then
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
         self.assertEqual(response.url, reverse("standingssync:characters"))
         self.assertTrue(mock_messages.success.called)
         self.assertTrue(mock_run_character_sync.delay.called)
@@ -179,7 +180,7 @@ class TestAddSyncChar(NoSocketsTestCase):
             response = self.make_request(self.user_normal, alt_character)
 
         # then
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
         self.assertEqual(response.url, reverse("standingssync:characters"))
         self.assertTrue(mock_messages.warning.called)
         self.assertFalse(mock_run_character_sync.delay.called)
@@ -208,7 +209,7 @@ class TestAddSyncChar(NoSocketsTestCase):
             response = self.make_request(user, alt_character)
 
         # then
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
         self.assertEqual(response.url, reverse("standingssync:characters"))
         self.assertFalse(mock_messages.warning.called)
         self.assertTrue(mock_run_character_sync.delay.called)
@@ -249,7 +250,7 @@ class TestAddAllianceManager(NoSocketsTestCase):
         response = self.make_request(user)
 
         # then
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
         self.assertEqual(response.url, reverse("standingssync:index"))
         self.assertTrue(mock_messages.success.called)
         self.assertTrue(mock_tasks.run_manager_sync.delay.called)
@@ -265,7 +266,7 @@ class TestAddAllianceManager(NoSocketsTestCase):
     #     response = self.make_request(user)
 
     #     # then
-    #     self.assertEqual(response.status_code, 302)
+    #     self.assertEqual(response.status_code, HTTPStatus.FOUND)
     #     self.assertEqual(response.url, reverse("standingssync:index"))
     #     self.assertFalse(mock_messages.success.called)
     #     self.assertFalse(mock_tasks.run_manager_sync.delay.called)
@@ -308,7 +309,7 @@ class TestAddAllianceManager(NoSocketsTestCase):
         response = self.make_request(user)
 
         # then
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
         self.assertEqual(response.url, reverse("standingssync:index"))
         self.assertTrue(mock_messages.warning.called)
         self.assertFalse(mock_tasks.run_manager_sync.delay.called)
