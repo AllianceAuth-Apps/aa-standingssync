@@ -189,6 +189,35 @@ class TestAddSyncChar(NoSocketsTestCase):
             .exists()
         )
 
+    def test_can_handle_missing_alliance_character(
+        self, mock_messages, mock_run_character_sync
+    ):
+        # given
+        sm = SyncManagerFactory(character_ownership=None)
+        main = EveCharacterFactory(corporation__alliance=sm.alliance)
+        user = UserMainDefaultFactory(main_character__character=main)
+        alt_character = EveCharacterFactory()
+        add_character_to_user(user, alt_character)
+        EveContactFactory(
+            manager=sm,
+            eve_entity=EveEntityCharacterFactory(id=alt_character.character_id),
+            standing=10,
+        )
+        # when
+        with patch(MODULE_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.1):
+            response = self.make_request(user, alt_character)
+
+        # then
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("standingssync:characters"))
+        self.assertFalse(mock_messages.warning.called)
+        self.assertTrue(mock_run_character_sync.delay.called)
+        self.assertTrue(
+            SyncedCharacter.objects.filter(manager=sm)
+            .filter(character_ownership__character=alt_character)
+            .exists()
+        )
+
 
 @patch(MODULE_PATH + ".tasks")
 @patch(MODULE_PATH + ".messages")
