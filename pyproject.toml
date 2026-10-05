@@ -26,11 +26,11 @@ classifiers = [
 dependencies = [
     "allianceauth-app-utils>=1.33.2",
     "allianceauth>=4,<6",
-    "django-esi>=8,<10",
-    "django-eveuniverse>=2",
+    "django-esi>=8,<11",
+    "django-eveuniverse>=2.2",
 ]
 [project.optional-dependencies]
-test = ["coverage", "factory_boy", "pook"]
+test = ["coverage", "factory_boy", "pookx"]
 
 [project.urls]
 Homepage = "https://github.com/AllianceAuth-Apps/aa-standingssync"
